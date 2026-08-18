@@ -1,0 +1,1 @@
+ALTER TABLE "users" ALTER COLUMN "universe_user_id" SET DATA TYPE bigint USING 0;

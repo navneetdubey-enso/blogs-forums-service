@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1786981880183,
+      "tag": "0000_fast_vance_astro",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787027952598,
+      "tag": "0001_users_and_blogs",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787029546519,
+      "tag": "0002_users_universe_user_id_bigint",
+      "breakpoints": true
+    }
+  ]
+}
