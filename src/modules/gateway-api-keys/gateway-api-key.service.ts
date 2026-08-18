@@ -1,9 +1,9 @@
 import {
   ConflictException,
+  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Inject } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import { GatewayApiKeyRepository } from './gateway-api-key.repository';
 
@@ -26,7 +26,6 @@ export class GatewayApiKeyService {
 
   async generateProjectToken(projectCodeInput: string) {
     const projectCode = this.normalizeProjectCode(projectCodeInput);
-
     const existing = await this.repository.findActiveByProjectCode(projectCode);
 
     if (existing) {
@@ -35,44 +34,17 @@ export class GatewayApiKeyService {
       );
     }
 
-    const keyPrefix = `${projectCode.toLowerCase()}_gateway_`;
-    const randomSecret = randomBytes(32).toString('hex');
-    const token = `${keyPrefix}${randomSecret}`;
-
-    const keyHash = createHash('sha256').update(token).digest('hex');
-
-    await this.repository.create({
-      projectCode,
-      keyPrefix,
-      keyHash,
-    });
-
-    return { projectCode, token };
+    return this.issueToken(projectCode);
   }
 
   async rotateProjectToken(projectCodeInput: string) {
     const projectCode = this.normalizeProjectCode(projectCodeInput);
-
     await this.repository.deactivateByProjectCode(projectCode);
-
-    const keyPrefix = `${projectCode.toLowerCase()}_gateway_`;
-    const randomSecret = randomBytes(32).toString('hex');
-    const token = `${keyPrefix}${randomSecret}`;
-
-    const keyHash = createHash('sha256').update(token).digest('hex');
-
-    await this.repository.create({
-      projectCode,
-      keyPrefix,
-      keyHash,
-    });
-
-    return { projectCode, token };
+    return this.issueToken(projectCode);
   }
 
   async authenticateToken(token: string) {
     const keyHash = createHash('sha256').update(token).digest('hex');
-
     const record = await this.repository.findActiveValidByHash(keyHash);
 
     if (!record) {
@@ -80,7 +52,20 @@ export class GatewayApiKeyService {
     }
 
     await this.repository.updateLastUsed(record.id);
-
     return record;
+  }
+
+  private async issueToken(projectCode: string) {
+    const keyPrefix = `${projectCode.toLowerCase()}_gateway_`;
+    const token = `${keyPrefix}${randomBytes(32).toString('hex')}`;
+    const keyHash = createHash('sha256').update(token).digest('hex');
+
+    await this.repository.create({
+      projectCode,
+      keyPrefix,
+      keyHash,
+    });
+
+    return { projectCode, token };
   }
 }

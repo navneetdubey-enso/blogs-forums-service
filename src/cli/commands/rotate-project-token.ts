@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import type { INestApplicationContext } from '@nestjs/common';
 import { AppModule } from '../../app.module';
 import { GatewayApiKeyService } from '../../modules/gateway-api-keys/gateway-api-key.service';
 
@@ -11,7 +12,7 @@ async function main() {
     return;
   }
 
-  let app;
+  let app: INestApplicationContext | undefined;
 
   try {
     app = await NestFactory.createApplicationContext(AppModule, {

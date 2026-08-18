@@ -1,11 +1,11 @@
-import { Module } from '@nestjs/common';
-import { DatabaseModule } from '../../database/database.module';
+import { Global, Module } from '@nestjs/common';
+import { ServiceAuthGuard } from '../../common/guards/service-auth.guard';
 import { GatewayApiKeyRepository } from './gateway-api-key.repository';
 import { GatewayApiKeyService } from './gateway-api-key.service';
 
+@Global()
 @Module({
-  imports: [DatabaseModule],
-  providers: [GatewayApiKeyRepository, GatewayApiKeyService],
-  exports: [GatewayApiKeyService],
+  providers: [GatewayApiKeyRepository, GatewayApiKeyService, ServiceAuthGuard],
+  exports: [GatewayApiKeyService, ServiceAuthGuard],
 })
 export class GatewayApiKeyModule {}

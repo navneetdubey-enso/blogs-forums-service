@@ -1,5 +1,11 @@
-import { ConflictException, Inject, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import type { InferSelectModel } from 'drizzle-orm';
+import { isUniqueViolation } from '../../common/helpers/postgres.helper';
 import { users } from '../../database/schema/users.schema';
 import { UsersRepository } from './users.repository';
 
@@ -36,7 +42,7 @@ export class UsersService {
     try {
       return await this.repository.create(identity);
     } catch (error) {
-      if (!this.isUniqueViolation(error)) {
+      if (!isUniqueViolation(error)) {
         throw error;
       }
 
@@ -53,6 +59,16 @@ export class UsersService {
     }
   }
 
+  async require(identity: AppUserIdentity, createIfMissing = false) {
+    const user = await this.resolve(identity, createIfMissing);
+    if (!user) {
+      throw new ForbiddenException(
+        'Unable to resolve application user identity',
+      );
+    }
+    return user;
+  }
+
   private syncMappedUser(existing: UserRow, identity: AppUserIdentity) {
     if (existing.universeUserId !== identity.universeUserId) {
       throw new ConflictException(
@@ -65,14 +81,5 @@ export class UsersService {
     }
 
     return existing;
-  }
-
-  private isUniqueViolation(error: unknown) {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: string }).code === '23505'
-    );
   }
 }

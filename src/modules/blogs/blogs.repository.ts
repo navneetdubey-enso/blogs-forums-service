@@ -1,20 +1,30 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, ilike, lt, ne, or, type SQL } from 'drizzle-orm';
+import { and, desc, eq, ilike, ne, or, type SQL } from 'drizzle-orm';
+import type { InferSelectModel } from 'drizzle-orm';
+import {
+  buildCursorCondition,
+  type CursorPayload,
+} from '../../common/helpers/cursor-pagination.helper';
 import { DatabaseService } from '../../database/database.service';
+import { blogLikes } from '../../database/schema/blog-likes.schema';
 import { blogs } from '../../database/schema/blogs.schema';
+import { media } from '../../database/schema/media.schema';
 import type { BlogStatus } from './dto/create-blog.dto';
-
-export type BlogCursor = {
-  createdAt: Date;
-  id: string;
-};
 
 export type ListBlogsParams = {
   limit: number;
-  cursor?: BlogCursor;
+  cursor?: CursorPayload;
   status?: BlogStatus;
   userId?: string;
   search?: string;
+};
+
+export type BlogRow = InferSelectModel<typeof blogs>;
+
+export type BlogWithThumbnail = BlogRow & {
+  thumbnailBucketName: string | null;
+  thumbnailObjectKey: string | null;
+  thumbnailVisibility: string | null;
 };
 
 @Injectable()
@@ -47,6 +57,27 @@ export class BlogsRepository {
     });
   }
 
+  async findActiveWithThumbnail(
+    id: string,
+  ): Promise<BlogWithThumbnail | undefined> {
+    const [row] = await this.database.db
+      .select({
+        blog: blogs,
+        thumbnailBucketName: media.bucketName,
+        thumbnailObjectKey: media.objectKey,
+        thumbnailVisibility: media.visibility,
+      })
+      .from(blogs)
+      .leftJoin(
+        media,
+        and(eq(blogs.thumbnailMediaId, media.id), eq(media.isDeleted, false)),
+      )
+      .where(and(eq(blogs.id, id), eq(blogs.isActive, true)))
+      .limit(1);
+
+    return row ? this.toBlogWithThumbnail(row) : undefined;
+  }
+
   async findBySlug(slug: string) {
     return this.database.db.query.blogs.findFirst({
       where: eq(blogs.slug, slug),
@@ -59,7 +90,16 @@ export class BlogsRepository {
     });
   }
 
-  async listActive(params: ListBlogsParams) {
+  async findLikeByBlogAndUser(blogId: string, userId: string) {
+    const [record] = await this.database.db
+      .select({ id: blogLikes.id })
+      .from(blogLikes)
+      .where(and(eq(blogLikes.blogId, blogId), eq(blogLikes.userId, userId)))
+      .limit(1);
+    return record;
+  }
+
+  async listActive(params: ListBlogsParams): Promise<BlogWithThumbnail[]> {
     const conditions: SQL[] = [eq(blogs.isActive, true)];
 
     if (params.status) {
@@ -82,24 +122,33 @@ export class BlogsRepository {
     }
 
     if (params.cursor) {
-      const cursorFilter = or(
-        lt(blogs.createdAt, params.cursor.createdAt),
-        and(
-          eq(blogs.createdAt, params.cursor.createdAt),
-          lt(blogs.id, params.cursor.id),
-        ),
+      const cursorFilter = buildCursorCondition(
+        blogs.createdAt,
+        blogs.id,
+        params.cursor,
       );
       if (cursorFilter) {
         conditions.push(cursorFilter);
       }
     }
 
-    return this.database.db
-      .select()
+    const rows = await this.database.db
+      .select({
+        blog: blogs,
+        thumbnailBucketName: media.bucketName,
+        thumbnailObjectKey: media.objectKey,
+        thumbnailVisibility: media.visibility,
+      })
       .from(blogs)
+      .leftJoin(
+        media,
+        and(eq(blogs.thumbnailMediaId, media.id), eq(media.isDeleted, false)),
+      )
       .where(and(...conditions))
       .orderBy(desc(blogs.createdAt), desc(blogs.id))
       .limit(params.limit + 1);
+
+    return rows.map((row) => this.toBlogWithThumbnail(row));
   }
 
   async update(
@@ -137,5 +186,19 @@ export class BlogsRepository {
       .returning();
 
     return record;
+  }
+
+  private toBlogWithThumbnail(row: {
+    blog: BlogRow;
+    thumbnailBucketName: string | null;
+    thumbnailObjectKey: string | null;
+    thumbnailVisibility: string | null;
+  }): BlogWithThumbnail {
+    return {
+      ...row.blog,
+      thumbnailBucketName: row.thumbnailBucketName,
+      thumbnailObjectKey: row.thumbnailObjectKey,
+      thumbnailVisibility: row.thumbnailVisibility,
+    };
   }
 }

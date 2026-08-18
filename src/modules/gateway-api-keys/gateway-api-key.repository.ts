@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { and, eq, isNull, or } from 'drizzle-orm';
+import { and, eq, gt, isNull, or } from 'drizzle-orm';
 import { DatabaseService } from '../../database/database.service';
 import { gatewayApiKeys } from '../../database/schema/gateway-api-keys.schema';
 
@@ -26,11 +26,7 @@ export class GatewayApiKeyRepository {
       where: and(
         eq(gatewayApiKeys.keyHash, keyHash),
         eq(gatewayApiKeys.isActive, true),
-        or(
-          isNull(gatewayApiKeys.expiresAt),
-          // Expiry is checked below because Drizzle's relational query
-          // API is intentionally kept simple here.
-        ),
+        or(isNull(gatewayApiKeys.expiresAt), gt(gatewayApiKeys.expiresAt, now)),
       ),
     });
   }
@@ -71,11 +67,5 @@ export class GatewayApiKeyRepository {
           eq(gatewayApiKeys.isActive, true),
         ),
       );
-  }
-
-  async findByHash(keyHash: string) {
-    return this.database.db.query.gatewayApiKeys.findFirst({
-      where: eq(gatewayApiKeys.keyHash, keyHash),
-    });
   }
 }

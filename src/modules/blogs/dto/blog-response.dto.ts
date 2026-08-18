@@ -24,6 +24,9 @@ export class BlogResponseDto {
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
   thumbnailMediaId: string | null;
 
+  @ApiPropertyOptional()
+  thumbnailUrl?: string;
+
   @ApiPropertyOptional({ type: [String], nullable: true })
   tags: string[] | null;
 
@@ -34,6 +37,12 @@ export class BlogResponseDto {
   readingTime: number | null;
 
   @ApiProperty()
+  likeCount: number;
+
+  @ApiPropertyOptional()
+  isLikedByCurrentUser?: boolean;
+
+  @ApiProperty()
   isActive: boolean;
 
   @ApiProperty()
@@ -42,20 +51,34 @@ export class BlogResponseDto {
   @ApiProperty()
   updatedAt: string;
 
-  static fromEntity(row: BlogRow): BlogResponseDto {
-    return {
+  static fromEntity(
+    row: BlogRow,
+    extras?: {
+      thumbnailUrl?: string;
+      isLikedByCurrentUser?: boolean;
+    },
+  ): BlogResponseDto {
+    const dto: BlogResponseDto = {
       id: row.id,
       userId: row.userId,
       title: row.title,
       slug: row.slug,
       content: row.content,
       thumbnailMediaId: row.thumbnailMediaId,
+      thumbnailUrl: extras?.thumbnailUrl,
       tags: row.tags,
       status: row.status,
       readingTime: row.readingTime,
+      likeCount: row.likeCount,
       isActive: row.isActive,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
+
+    if (extras?.isLikedByCurrentUser !== undefined) {
+      dto.isLikedByCurrentUser = extras.isLikedByCurrentUser;
+    }
+
+    return dto;
   }
 }

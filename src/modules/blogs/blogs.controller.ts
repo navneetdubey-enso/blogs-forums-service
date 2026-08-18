@@ -21,11 +21,14 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { ServiceAuthGuard } from '../../common/guards/service-auth.guard';
 import {
+  ApiOptionalUserIdentityHeaders,
   ApiUserIdentityHeaders,
+  OptionalUserIdentity,
   UserIdentity,
-} from '../users/user-identity.decorator';
+} from '../../common/decorators/user-identity.decorator';
+import { ServiceAuthGuard } from '../../common/guards/service-auth.guard';
+import { apiSuccess } from '../../common/helpers/api-response.helper';
 import type { AppUserIdentity } from '../users/users.service';
 import { BlogsService } from './blogs.service';
 import { CreateBlogDto } from './dto/create-blog.dto';
@@ -49,38 +52,36 @@ export class BlogsController {
     @UserIdentity() identity: AppUserIdentity,
     @Body() dto: CreateBlogDto,
   ) {
-    const data = await this.blogsService.create(identity, dto);
-    return {
-      statusCode: 201,
-      success: true,
-      message: 'Blog created successfully',
-      data,
-    };
+    return apiSuccess(
+      201,
+      'Blog created successfully',
+      await this.blogsService.create(identity, dto),
+    );
   }
 
   @Get()
   @ApiOperation({ summary: 'List active blogs' })
   async list(@Query() query: ListBlogsQueryDto) {
-    const data = await this.blogsService.list(query);
-    return {
-      statusCode: 200,
-      success: true,
-      message: 'Blogs retrieved successfully',
-      data,
-    };
+    return apiSuccess(
+      200,
+      'Blogs retrieved successfully',
+      await this.blogsService.list(query),
+    );
   }
 
   @Get(':id')
+  @ApiOptionalUserIdentityHeaders()
   @ApiOperation({ summary: 'Get an active blog by id' })
   @ApiNotFoundResponse({ description: 'Blog not found' })
-  async getById(@Param('id', ParseUUIDPipe) id: string) {
-    const data = await this.blogsService.getById(id);
-    return {
-      statusCode: 200,
-      success: true,
-      message: 'Blog retrieved successfully',
-      data,
-    };
+  async getById(
+    @Param('id', ParseUUIDPipe) id: string,
+    @OptionalUserIdentity() identity?: AppUserIdentity,
+  ) {
+    return apiSuccess(
+      200,
+      'Blog retrieved successfully',
+      await this.blogsService.getById(id, identity),
+    );
   }
 
   @Patch(':id')
@@ -94,13 +95,11 @@ export class BlogsController {
     @UserIdentity() identity: AppUserIdentity,
     @Body() dto: UpdateBlogDto,
   ) {
-    const data = await this.blogsService.update(id, identity, dto);
-    return {
-      statusCode: 200,
-      success: true,
-      message: 'Blog updated successfully',
-      data,
-    };
+    return apiSuccess(
+      200,
+      'Blog updated successfully',
+      await this.blogsService.update(id, identity, dto),
+    );
   }
 
   @Delete(':id')
@@ -112,12 +111,10 @@ export class BlogsController {
     @Param('id', ParseUUIDPipe) id: string,
     @UserIdentity() identity: AppUserIdentity,
   ) {
-    const data = await this.blogsService.softDelete(id, identity);
-    return {
-      statusCode: 200,
-      success: true,
-      message: 'Blog deleted successfully',
-      data,
-    };
+    return apiSuccess(
+      200,
+      'Blog deleted successfully',
+      await this.blogsService.softDelete(id, identity),
+    );
   }
 }

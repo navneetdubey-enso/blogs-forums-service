@@ -10,6 +10,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
+import { media } from './media.schema';
 import { users } from './users.schema';
 
 export const blogStatusEnum = pgEnum('blog_status', ['DRAFT', 'PUBLISHED']);
@@ -24,10 +25,13 @@ export const blogs = pgTable(
     title: varchar('title', { length: 255 }).notNull(),
     slug: varchar('slug', { length: 255 }).notNull(),
     content: text('content').notNull(),
-    thumbnailMediaId: uuid('thumbnail_media_id'),
+    thumbnailMediaId: uuid('thumbnail_media_id').references(() => media.id, {
+      onDelete: 'set null',
+    }),
     tags: text('tags').array(),
     status: blogStatusEnum('status').notNull(),
     readingTime: integer('reading_time'),
+    likeCount: integer('like_count').notNull().default(0),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()

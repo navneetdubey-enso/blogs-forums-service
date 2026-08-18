@@ -55,7 +55,9 @@ export class RedisService implements OnModuleDestroy {
       const keys: string[] = [];
 
       for await (const chunk of stream) {
-        const batch = Array.isArray(chunk) ? chunk : [chunk];
+        const batch = (Array.isArray(chunk) ? chunk : [chunk]).filter(
+          (key): key is string => typeof key === 'string',
+        );
         keys.push(...batch);
       }
 

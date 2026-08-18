@@ -1,6 +1,7 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { ServiceAuthGuard } from '../../common/guards/service-auth.guard';
+import { apiSuccess } from '../../common/helpers/api-response.helper';
 
 @ApiTags('Health')
 @ApiSecurity('service-auth')
@@ -10,13 +11,8 @@ export class HealthController {
   @Get()
   @ApiOperation({ summary: 'Health check' })
   health() {
-    return {
-      statusCode: 200,
-      success: true,
-      message: 'Content Service is healthy',
-      data: {
-        status: 'ok',
-      },
-    };
+    return apiSuccess(200, 'Content Service is healthy', {
+      status: 'ok',
+    });
   }
 }

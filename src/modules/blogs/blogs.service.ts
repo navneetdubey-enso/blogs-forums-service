@@ -7,12 +7,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { isUUID } from 'class-validator';
+import {
+  decodeCursor,
+  sliceCursorPage,
+} from '../../common/helpers/cursor-pagination.helper';
+import { isUniqueViolation } from '../../common/helpers/postgres.helper';
 import { calculateReadingTime } from '../../common/helpers/reading-time.helper';
+import { MediaService } from '../media/media.service';
 import { RedisService } from '../redis/redis.service';
 import type { AppUserIdentity } from '../users/users.service';
 import { UsersService } from '../users/users.service';
-import { BlogsRepository } from './blogs.repository';
+import { BlogsRepository, type BlogWithThumbnail } from './blogs.repository';
 import { BlogResponseDto } from './dto/blog-response.dto';
 import { CreateBlogDto } from './dto/create-blog.dto';
 import { ListBlogsQueryDto } from './dto/list-blogs.query.dto';
@@ -25,29 +30,26 @@ const BLOG_LIST_CACHE_TTL_SECONDS = 60;
 export class BlogsService {
   constructor(
     @Inject(BlogsRepository)
-    private readonly repository: BlogsRepository,
+    private readonly blogsRepository: BlogsRepository,
     @Inject(UsersService)
     private readonly usersService: UsersService,
     @Inject(RedisService)
     private readonly redis: RedisService,
+    @Inject(MediaService)
+    private readonly mediaService: MediaService,
   ) {}
 
   async create(identity: AppUserIdentity, dto: CreateBlogDto) {
-    const user = await this.usersService.resolve(identity, true);
-    if (!user) {
-      throw new ForbiddenException(
-        'Unable to resolve application user identity',
-      );
-    }
+    const user = await this.usersService.require(identity, true);
     const slug = dto.slug.trim();
 
-    const existingSlug = await this.repository.findBySlug(slug);
+    const existingSlug = await this.blogsRepository.findBySlug(slug);
     if (existingSlug) {
       throw new ConflictException('Blog slug already exists');
     }
 
     try {
-      const record = await this.repository.create({
+      const record = await this.blogsRepository.create({
         userId: user.id,
         title: dto.title.trim(),
         slug,
@@ -59,9 +61,11 @@ export class BlogsService {
       });
 
       await this.invalidateListCaches();
-      return BlogResponseDto.fromEntity(record);
+      return BlogResponseDto.fromEntity(record, {
+        thumbnailUrl: await this.resolveThumbnailUrl(record.thumbnailMediaId),
+      });
     } catch (error) {
-      if (this.isUniqueViolation(error)) {
+      if (isUniqueViolation(error)) {
         throw new ConflictException('Blog slug already exists');
       }
       throw error;
@@ -70,7 +74,7 @@ export class BlogsService {
 
   async list(query: ListBlogsQueryDto) {
     const limit = query.limit ?? 20;
-    const cursor = query.cursor ? this.decodeCursor(query.cursor) : undefined;
+    const cursor = query.cursor ? decodeCursor(query.cursor) : undefined;
     const search = query.search?.trim() || undefined;
     const cacheKey = this.listCacheKey({
       limit,
@@ -89,7 +93,7 @@ export class BlogsService {
       return cached;
     }
 
-    const rows = await this.repository.listActive({
+    const rows = await this.blogsRepository.listActive({
       limit,
       cursor,
       status: query.status,
@@ -97,33 +101,49 @@ export class BlogsService {
       search,
     });
 
-    const hasMore = rows.length > limit;
-    const page = hasMore ? rows.slice(0, limit) : rows;
-    const last = page[page.length - 1];
+    const page = sliceCursorPage(rows, limit);
     const result = {
-      items: page.map((row) => BlogResponseDto.fromEntity(row)),
-      nextCursor:
-        hasMore && last ? this.encodeCursor(last.createdAt, last.id) : null,
+      items: await Promise.all(page.items.map((row) => this.toResponse(row))),
+      nextCursor: page.nextCursor,
     };
 
     await this.redis.setJson(cacheKey, result, BLOG_LIST_CACHE_TTL_SECONDS);
     return result;
   }
 
-  async getById(id: string) {
+  async getById(id: string, identity?: AppUserIdentity) {
     const cacheKey = `blog:${id}`;
-    const cached = await this.redis.getJson<BlogResponseDto>(cacheKey);
-    if (cached) {
-      return cached;
+
+    if (!identity) {
+      const cached = await this.redis.getJson<BlogResponseDto>(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
-    const record = await this.repository.findActiveById(id);
+    const record = await this.blogsRepository.findActiveWithThumbnail(id);
     if (!record) {
       throw new NotFoundException('Blog not found');
     }
 
-    const result = BlogResponseDto.fromEntity(record);
-    await this.redis.setJson(cacheKey, result, BLOG_CACHE_TTL_SECONDS);
+    let isLikedByCurrentUser: boolean | undefined;
+    if (identity) {
+      const user = await this.usersService.resolve(identity);
+      if (user) {
+        const like = await this.blogsRepository.findLikeByBlogAndUser(
+          id,
+          user.id,
+        );
+        isLikedByCurrentUser = !!like;
+      }
+    }
+
+    const result = await this.toResponse(record, isLikedByCurrentUser);
+
+    if (!identity) {
+      await this.redis.setJson(cacheKey, result, BLOG_CACHE_TTL_SECONDS);
+    }
+
     return result;
   }
 
@@ -141,18 +161,14 @@ export class BlogsService {
       throw new BadRequestException('No fields to update');
     }
 
-    const blog = await this.repository.findActiveById(id);
-    if (!blog) {
-      throw new NotFoundException('Blog not found');
-    }
-
-    const user = await this.usersService.resolve(identity);
-    if (!user || blog.userId !== user.id) {
-      throw new ForbiddenException('You are not allowed to modify this blog');
-    }
+    const blog = await this.requireOwnedBlog(
+      id,
+      identity,
+      'You are not allowed to modify this blog',
+    );
 
     if (dto.slug && dto.slug !== blog.slug) {
-      const existingSlug = await this.repository.findBySlugExcludingId(
+      const existingSlug = await this.blogsRepository.findBySlugExcludingId(
         dto.slug,
         id,
       );
@@ -162,7 +178,7 @@ export class BlogsService {
     }
 
     try {
-      const record = await this.repository.update(id, {
+      const record = await this.blogsRepository.update(id, {
         title: dto.title?.trim(),
         slug: dto.slug,
         content: dto.content,
@@ -180,9 +196,11 @@ export class BlogsService {
       }
 
       await this.invalidateBlogCaches(id);
-      return BlogResponseDto.fromEntity(record);
+      return BlogResponseDto.fromEntity(record, {
+        thumbnailUrl: await this.resolveThumbnailUrl(record.thumbnailMediaId),
+      });
     } catch (error) {
-      if (this.isUniqueViolation(error)) {
+      if (isUniqueViolation(error)) {
         throw new ConflictException('Blog slug already exists');
       }
       throw error;
@@ -190,17 +208,13 @@ export class BlogsService {
   }
 
   async softDelete(id: string, identity: AppUserIdentity) {
-    const blog = await this.repository.findActiveById(id);
-    if (!blog) {
-      throw new NotFoundException('Blog not found');
-    }
+    await this.requireOwnedBlog(
+      id,
+      identity,
+      'You are not allowed to delete this blog',
+    );
 
-    const user = await this.usersService.resolve(identity);
-    if (!user || blog.userId !== user.id) {
-      throw new ForbiddenException('You are not allowed to delete this blog');
-    }
-
-    const record = await this.repository.softDelete(id);
+    const record = await this.blogsRepository.softDelete(id);
     if (!record) {
       throw new NotFoundException('Blog not found');
     }
@@ -212,30 +226,57 @@ export class BlogsService {
     };
   }
 
-  private encodeCursor(createdAt: Date, id: string) {
-    return Buffer.from(
-      JSON.stringify({ createdAt: createdAt.toISOString(), id }),
-    ).toString('base64url');
+  async clearBlogCache(blogId?: string) {
+    if (blogId) {
+      await this.invalidateBlogCaches(blogId);
+      return;
+    }
+    await this.invalidateListCaches();
   }
 
-  private decodeCursor(cursor: string) {
+  private async requireOwnedBlog(
+    id: string,
+    identity: AppUserIdentity,
+    forbiddenMessage: string,
+  ) {
+    const blog = await this.blogsRepository.findActiveById(id);
+    if (!blog) {
+      throw new NotFoundException('Blog not found');
+    }
+
+    const user = await this.usersService.resolve(identity);
+    if (!user || blog.userId !== user.id) {
+      throw new ForbiddenException(forbiddenMessage);
+    }
+
+    return blog;
+  }
+
+  private async toResponse(
+    row: BlogWithThumbnail,
+    isLikedByCurrentUser?: boolean,
+  ) {
+    const thumbnailUrl = await this.mediaService.resolveStorageUrl(
+      row.thumbnailBucketName,
+      row.thumbnailObjectKey,
+      row.thumbnailVisibility,
+    );
+
+    return BlogResponseDto.fromEntity(row, {
+      thumbnailUrl,
+      isLikedByCurrentUser,
+    });
+  }
+
+  private async resolveThumbnailUrl(mediaId: string | null) {
+    if (!mediaId) {
+      return undefined;
+    }
     try {
-      const parsed = JSON.parse(
-        Buffer.from(cursor, 'base64url').toString('utf8'),
-      ) as { createdAt?: string; id?: string };
-
-      if (!parsed.createdAt || !parsed.id || !isUUID(parsed.id)) {
-        throw new Error('invalid');
-      }
-
-      const createdAt = new Date(parsed.createdAt);
-      if (Number.isNaN(createdAt.getTime())) {
-        throw new Error('invalid');
-      }
-
-      return { createdAt, id: parsed.id };
+      const mediaRecord = await this.mediaService.findOne(mediaId);
+      return mediaRecord.url;
     } catch {
-      throw new BadRequestException('Invalid cursor');
+      return undefined;
     }
   }
 
@@ -259,14 +300,5 @@ export class BlogsService {
 
   private async invalidateListCaches() {
     await this.redis.delByPattern('blogs:list:*');
-  }
-
-  private isUniqueViolation(error: unknown) {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: string }).code === '23505'
-    );
   }
 }
