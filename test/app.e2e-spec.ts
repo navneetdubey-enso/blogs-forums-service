@@ -4,7 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 
-describe('Health (e2e)', () => {
+describe('Service auth (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
@@ -16,8 +16,8 @@ describe('Health (e2e)', () => {
     await app.init();
   });
 
-  it('/health (GET) without token returns 401', () => {
-    return request(app.getHttpServer()).get('/health').expect(401);
+  it('/api/v1/blogs (GET) without token returns 401', () => {
+    return request(app.getHttpServer()).get('/api/v1/blogs').expect(401);
   });
 
   afterEach(async () => {

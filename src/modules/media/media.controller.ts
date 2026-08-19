@@ -7,6 +7,8 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Res,
+  StreamableFile,
   UploadedFile,
   UploadedFiles,
   UseGuards,
@@ -23,6 +25,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { Response } from 'express';
 import {
   ApiUserIdentityHeaders,
   UserIdentity,
@@ -110,6 +113,30 @@ export class MediaController {
   ) {
     const data = await this.mediaService.uploadMany(files, dto, identity);
     return apiSuccess(201, 'Media uploaded successfully', data);
+  }
+
+  @Get(':uuid/download')
+  @ApiOperation({
+    summary: 'Download a media file by UUID',
+    description:
+      'Authenticated media download. Returns the original file with its MIME type and filename.',
+  })
+  @ApiResponse({ status: 200, description: 'Binary file stream' })
+  @ApiResponse({ status: 404, description: 'Media not found' })
+  async download(
+    @Param('uuid', ParseUUIDPipe) uuid: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const file = await this.mediaService.download(uuid);
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${encodeURIComponent(file.filename)}"`,
+    );
+    if (file.contentLength !== undefined) {
+      res.setHeader('Content-Length', String(file.contentLength));
+    }
+    return new StreamableFile(file.stream);
   }
 
   @Get(':uuid')

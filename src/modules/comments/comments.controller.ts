@@ -90,7 +90,8 @@ export class CommentsController {
   @Delete('comments/:commentId')
   @ApiUserIdentityHeaders()
   @ApiOperation({
-    summary: 'Soft delete a comment (comment author or blog owner)',
+    summary:
+      'Soft delete a comment and all nested replies (comment author or blog owner)',
   })
   @ApiNotFoundResponse({ description: 'Comment not found' })
   @ApiForbiddenResponse({

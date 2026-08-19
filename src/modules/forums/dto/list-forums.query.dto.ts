@@ -1,9 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import { BLOG_STATUSES, type BlogStatus } from './create-blog.dto';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
-export class ListBlogsQueryDto {
+export class ListForumsQueryDto {
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
   @IsOptional()
   @Type(() => Number)
@@ -17,12 +16,7 @@ export class ListBlogsQueryDto {
   @IsString()
   cursor?: string;
 
-  @ApiPropertyOptional({ enum: BLOG_STATUSES })
-  @IsOptional()
-  @IsIn(BLOG_STATUSES)
-  status?: BlogStatus;
-
-  @ApiPropertyOptional({ description: 'Search in blog title and content' })
+  @ApiPropertyOptional({ description: 'Search in forum name and description' })
   @IsOptional()
   @IsString()
   search?: string;

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
+import type { Readable } from 'node:stream';
 import { AwsS3Service } from './aws-s3.service';
 import { MediaResponseDto } from './dto/media-response.dto';
 import { UploadMediaDto } from './dto/upload-media.dto';
@@ -67,7 +68,10 @@ export class MediaService {
     const objectKeys = uploadPayloads.map((payload) => payload.objectKey);
     const s3Results = await Promise.all(
       uploadPayloads.map((payload) =>
-        this.awsS3Service.upload(payload.file, payload.objectKey),
+        this.awsS3Service.upload(payload.file, payload.objectKey, {
+          isPublic:
+            (dto.visibility || this.defaultVisibility(dto)) === 'PUBLIC',
+        }),
       ),
     );
 
@@ -85,7 +89,7 @@ export class MediaService {
         bucketName: s3Results[index].bucket,
         objectKey: s3Results[index].objectKey,
         etag: s3Results[index].etag,
-        visibility: dto.visibility || 'PRIVATE',
+        visibility: dto.visibility || this.defaultVisibility(dto),
         refModule: dto.refModule,
         refId: dto.refId,
         uploadedBy: user.id,
@@ -122,6 +126,27 @@ export class MediaService {
     return MediaResponseDto.fromEntity(entity, await this.resolveUrl(entity));
   }
 
+  async download(id: string): Promise<{
+    stream: Readable;
+    mimeType: string;
+    filename: string;
+    contentLength?: number;
+  }> {
+    const entity = await this.mediaRepository.findById(id);
+    if (!entity || !entity.objectKey) {
+      throw new NotFoundException(`Media not found with ID: ${id}`);
+    }
+
+    const object = await this.awsS3Service.getObject(entity.objectKey);
+    return {
+      stream: object.body,
+      mimeType:
+        entity.mimeType || object.contentType || 'application/octet-stream',
+      filename: entity.originalName || entity.storedName || `${entity.id}`,
+      contentLength: object.contentLength,
+    };
+  }
+
   async resolveStorageUrl(
     bucketName?: string | null,
     objectKey?: string | null,
@@ -146,7 +171,9 @@ export class MediaService {
     const storedName = `${fileUuid}.${ext}`;
     const objectKey = this.generateObjectKey(dto, ownerUuid, storedName);
 
-    const s3Result = await this.awsS3Service.upload(file, objectKey);
+    const s3Result = await this.awsS3Service.upload(file, objectKey, {
+      isPublic: (dto.visibility || this.defaultVisibility(dto)) === 'PUBLIC',
+    });
 
     try {
       const entity = await this.mediaRepository.create({
@@ -162,7 +189,7 @@ export class MediaService {
         bucketName: s3Result.bucket,
         objectKey: s3Result.objectKey,
         etag: s3Result.etag,
-        visibility: dto.visibility || 'PRIVATE',
+        visibility: dto.visibility || this.defaultVisibility(dto),
         refModule: dto.refModule,
         refId: dto.refId,
         uploadedBy,
@@ -193,12 +220,24 @@ export class MediaService {
   ): string {
     const refModule = dto.refModule?.trim().toUpperCase();
 
-    // Blog media is stored as infocalling/blogs/{media_uuid}.{ext} — never under a blog UUID folder.
+    // Blog/forum media is stored as infocalling/{module}/{media_uuid}.{ext}
+    // — never under a resource UUID folder.
     if (refModule === 'BLOG') {
       return `infocalling/blogs/${storedName}`;
     }
+    if (refModule === 'FORUM') {
+      return `infocalling/forums/${storedName}`;
+    }
 
     return `user/${ownerUuid}/${storedName}`;
+  }
+
+  private defaultVisibility(dto: UploadMediaDto): 'PUBLIC' | 'PRIVATE' {
+    const refModule = dto.refModule?.trim().toUpperCase();
+    if (refModule === 'BLOG' || refModule === 'FORUM') {
+      return 'PUBLIC';
+    }
+    return 'PRIVATE';
   }
 
   private async resolveUrl(entity: MediaRow): Promise<string> {

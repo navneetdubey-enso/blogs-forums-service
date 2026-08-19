@@ -21,6 +21,7 @@ import { BlogsRepository, type BlogWithThumbnail } from './blogs.repository';
 import { BlogResponseDto } from './dto/blog-response.dto';
 import { CreateBlogDto } from './dto/create-blog.dto';
 import { ListBlogsQueryDto } from './dto/list-blogs.query.dto';
+import { ListMyBlogsQueryDto } from './dto/list-my-blogs.query.dto';
 import { UpdateBlogDto } from './dto/update-blog.dto';
 
 const BLOG_CACHE_TTL_SECONDS = 300;
@@ -49,20 +50,22 @@ export class BlogsService {
     }
 
     try {
+      const thumbnailUrl = await this.resolveThumbnailUrl(dto.thumbnailMediaId);
       const record = await this.blogsRepository.create({
         userId: user.id,
         title: dto.title.trim(),
         slug,
         content: dto.content,
         thumbnailMediaId: dto.thumbnailMediaId,
+        thumbnailUrl,
         tags: dto.tags,
-        status: dto.status,
+        status: dto.status ?? 'DRAFT',
         readingTime: calculateReadingTime(dto.content),
       });
 
       await this.invalidateListCaches();
       return BlogResponseDto.fromEntity(record, {
-        thumbnailUrl: await this.resolveThumbnailUrl(record.thumbnailMediaId),
+        thumbnailUrl: record.thumbnailUrl,
       });
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -80,7 +83,7 @@ export class BlogsService {
       limit,
       cursor: query.cursor ?? null,
       status: query.status ?? null,
-      userId: query.userId ?? null,
+      userId: null,
       search: search ?? null,
     });
 
@@ -97,7 +100,57 @@ export class BlogsService {
       limit,
       cursor,
       status: query.status,
-      userId: query.userId,
+      search,
+    });
+
+    const page = sliceCursorPage(rows, limit);
+    const result = {
+      items: await Promise.all(page.items.map((row) => this.toResponse(row))),
+      nextCursor: page.nextCursor,
+    };
+
+    await this.redis.setJson(cacheKey, result, BLOG_LIST_CACHE_TTL_SECONDS);
+    return result;
+  }
+
+  async listMine(identity: AppUserIdentity, query: ListMyBlogsQueryDto) {
+    const requestedUserId = query.userId ?? query.user_id;
+    if (!requestedUserId) {
+      throw new BadRequestException('user_id is required');
+    }
+
+    const user = await this.usersService.require(identity);
+    if (user.id !== requestedUserId) {
+      throw new ForbiddenException(
+        'user_id must match the authenticated application user',
+      );
+    }
+
+    const limit = query.limit ?? 20;
+    const cursor = query.cursor ? decodeCursor(query.cursor) : undefined;
+    const search = query.search?.trim() || undefined;
+    const cacheKey = this.listCacheKey({
+      limit,
+      cursor: query.cursor ?? null,
+      status: query.status ?? null,
+      userId: requestedUserId,
+      search: search ?? null,
+    });
+
+    const cached = await this.redis.getJson<{
+      items: BlogResponseDto[];
+      nextCursor: string | null;
+    }>(cacheKey);
+
+    if (cached) {
+      return cached;
+    }
+
+    const rows = await this.blogsRepository.listActive({
+      limit,
+      cursor,
+      status: query.status,
+      userId: requestedUserId,
       search,
     });
 
@@ -177,12 +230,20 @@ export class BlogsService {
       }
     }
 
+    const thumbnailUrl =
+      dto.thumbnailMediaId === undefined
+        ? undefined
+        : dto.thumbnailMediaId === null
+          ? null
+          : await this.resolveThumbnailUrl(dto.thumbnailMediaId);
+
     try {
       const record = await this.blogsRepository.update(id, {
         title: dto.title?.trim(),
         slug: dto.slug,
         content: dto.content,
         thumbnailMediaId: dto.thumbnailMediaId,
+        thumbnailUrl,
         tags: dto.tags,
         status: dto.status,
         readingTime:
@@ -256,11 +317,14 @@ export class BlogsService {
     row: BlogWithThumbnail,
     isLikedByCurrentUser?: boolean,
   ) {
-    const thumbnailUrl = await this.mediaService.resolveStorageUrl(
-      row.thumbnailBucketName,
-      row.thumbnailObjectKey,
-      row.thumbnailVisibility,
-    );
+    const thumbnailUrl =
+      row.thumbnailUrl ??
+      (await this.mediaService.resolveStorageUrl(
+        row.thumbnailBucketName,
+        row.thumbnailObjectKey,
+        row.thumbnailVisibility,
+      )) ??
+      null;
 
     return BlogResponseDto.fromEntity(row, {
       thumbnailUrl,
@@ -268,15 +332,15 @@ export class BlogsService {
     });
   }
 
-  private async resolveThumbnailUrl(mediaId: string | null) {
+  private async resolveThumbnailUrl(mediaId?: string | null) {
     if (!mediaId) {
-      return undefined;
+      return null;
     }
     try {
       const mediaRecord = await this.mediaService.findOne(mediaId);
-      return mediaRecord.url;
+      return mediaRecord.url ?? null;
     } catch {
-      return undefined;
+      return null;
     }
   }
 

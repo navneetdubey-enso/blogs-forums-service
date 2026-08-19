@@ -28,6 +28,7 @@ export const blogs = pgTable(
     thumbnailMediaId: uuid('thumbnail_media_id').references(() => media.id, {
       onDelete: 'set null',
     }),
+    thumbnailUrl: varchar('thumbnail_url', { length: 2048 }),
     tags: text('tags').array(),
     status: blogStatusEnum('status').notNull(),
     readingTime: integer('reading_time'),

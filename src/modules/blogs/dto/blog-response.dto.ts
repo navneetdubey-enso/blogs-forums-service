@@ -24,8 +24,8 @@ export class BlogResponseDto {
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
   thumbnailMediaId: string | null;
 
-  @ApiPropertyOptional()
-  thumbnailUrl?: string;
+  @ApiPropertyOptional({ nullable: true })
+  thumbnailUrl: string | null;
 
   @ApiPropertyOptional({ type: [String], nullable: true })
   tags: string[] | null;
@@ -54,7 +54,7 @@ export class BlogResponseDto {
   static fromEntity(
     row: BlogRow,
     extras?: {
-      thumbnailUrl?: string;
+      thumbnailUrl?: string | null;
       isLikedByCurrentUser?: boolean;
     },
   ): BlogResponseDto {
@@ -65,7 +65,7 @@ export class BlogResponseDto {
       slug: row.slug,
       content: row.content,
       thumbnailMediaId: row.thumbnailMediaId,
-      thumbnailUrl: extras?.thumbnailUrl,
+      thumbnailUrl: extras?.thumbnailUrl ?? row.thumbnailUrl ?? null,
       tags: row.tags,
       status: row.status,
       readingTime: row.readingTime,

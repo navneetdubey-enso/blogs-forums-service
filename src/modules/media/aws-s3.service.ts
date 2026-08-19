@@ -11,8 +11,10 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { Readable } from 'node:stream';
 
 @Injectable()
 export class AwsS3Service {
@@ -45,27 +47,51 @@ export class AwsS3Service {
   async upload(
     file: Express.Multer.File,
     key: string,
+    options?: { isPublic?: boolean },
   ): Promise<{ objectKey: string; etag?: string; bucket: string }> {
     try {
-      const command = new PutObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-      });
-
-      const response = await this.s3Client.send(command);
-      return {
-        objectKey: key,
-        etag: response.ETag,
-        bucket: this.bucketName,
-      };
+      return await this.putObject(file, key, options?.isPublic === true);
     } catch (error) {
+      if (options?.isPublic) {
+        this.logger.warn(
+          `Public ACL rejected for key ${key}; retrying without ACL. Ensure the bucket policy allows public reads.`,
+        );
+        try {
+          return await this.putObject(file, key, false);
+        } catch (retryError) {
+          this.logger.error(`S3 upload failed for key: ${key}`, retryError);
+          throw new InternalServerErrorException(
+            `File upload failed: ${(retryError as Error).message}`,
+          );
+        }
+      }
+
       this.logger.error(`S3 upload failed for key: ${key}`, error);
       throw new InternalServerErrorException(
         `File upload failed: ${(error as Error).message}`,
       );
     }
+  }
+
+  private async putObject(
+    file: Express.Multer.File,
+    key: string,
+    isPublic: boolean,
+  ) {
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+      ...(isPublic ? { ACL: 'public-read' as const } : {}),
+    });
+
+    const response = await this.s3Client.send(command);
+    return {
+      objectKey: key,
+      etag: response.ETag,
+      bucket: this.bucketName,
+    };
   }
 
   async delete(key: string): Promise<void> {
@@ -125,6 +151,44 @@ export class AwsS3Service {
       );
       throw new InternalServerErrorException(
         `Could not generate download link: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  async getObject(key: string): Promise<{
+    body: Readable;
+    contentType?: string;
+    contentLength?: number;
+  }> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+      const response = await this.s3Client.send(command);
+
+      if (!response.Body) {
+        throw new NotFoundException(`S3 object not found for key: ${key}`);
+      }
+
+      return {
+        body: response.Body as Readable,
+        contentType: response.ContentType,
+        contentLength: response.ContentLength,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      const name = (error as { name?: string }).name;
+      if (name === 'NoSuchKey' || name === 'NotFound') {
+        throw new NotFoundException(`S3 object not found for key: ${key}`);
+      }
+
+      this.logger.error(`S3 getObject failed for key: ${key}`, error);
+      throw new InternalServerErrorException(
+        `File download failed: ${(error as Error).message}`,
       );
     }
   }

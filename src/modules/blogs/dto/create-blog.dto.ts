@@ -51,7 +51,13 @@ export class CreateBlogDto {
   @MaxLength(50, { each: true })
   tags?: string[];
 
-  @ApiProperty({ enum: BLOG_STATUSES, example: 'DRAFT' })
+  @ApiPropertyOptional({
+    enum: BLOG_STATUSES,
+    example: 'DRAFT',
+    description:
+      'Optional. Defaults to DRAFT. Determined by the backend when omitted.',
+  })
+  @IsOptional()
   @IsIn(BLOG_STATUSES)
-  status: BlogStatus;
+  status?: BlogStatus;
 }

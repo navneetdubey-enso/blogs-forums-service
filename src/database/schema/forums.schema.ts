@@ -1,0 +1,106 @@
+import {
+  boolean,
+  index,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  varchar,
+  type AnyPgColumn,
+} from 'drizzle-orm/pg-core';
+import { users } from './users.schema';
+
+export const forumTopicStatusEnum = pgEnum('forum_topic_status', [
+  'DRAFT',
+  'PUBLISHED',
+]);
+
+export const forums = pgTable(
+  'forums',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: varchar('name', { length: 255 }).notNull(),
+    slug: varchar('slug', { length: 255 }).notNull(),
+    description: text('description'),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    slugUid: uniqueIndex('forums_slug_uidx').on(table.slug),
+    createdAtIdx: index('forums_created_at_idx').on(table.createdAt),
+  }),
+);
+
+export const forumTopics = pgTable(
+  'forum_topics',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    forumId: uuid('forum_id')
+      .notNull()
+      .references(() => forums.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    title: varchar('title', { length: 255 }).notNull(),
+    slug: varchar('slug', { length: 255 }).notNull(),
+    content: text('content').notNull(),
+    status: forumTopicStatusEnum('status').notNull().default('DRAFT'),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    slugUid: uniqueIndex('forum_topics_slug_uidx').on(table.slug),
+    forumIdIdx: index('forum_topics_forum_id_idx').on(table.forumId),
+    userIdIdx: index('forum_topics_user_id_idx').on(table.userId),
+    statusIdx: index('forum_topics_status_idx').on(table.status),
+    createdAtIdx: index('forum_topics_created_at_idx').on(table.createdAt),
+  }),
+);
+
+export const forumPosts = pgTable(
+  'forum_posts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    topicId: uuid('topic_id')
+      .notNull()
+      .references(() => forumTopics.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    content: text('content').notNull(),
+    parentPostId: uuid('parent_post_id').references(
+      (): AnyPgColumn => forumPosts.id,
+      { onDelete: 'cascade' },
+    ),
+    isReply: boolean('is_reply').notNull().default(false),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    topicCreatedAtIdIdx: index('idx_forum_posts_topic_created_at_id').on(
+      table.topicId,
+      table.createdAt,
+      table.id,
+    ),
+    parentPostIdIdx: index('idx_forum_posts_parent_post_id').on(
+      table.parentPostId,
+    ),
+  }),
+);

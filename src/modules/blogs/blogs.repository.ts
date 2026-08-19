@@ -40,6 +40,7 @@ export class BlogsRepository {
     slug: string;
     content: string;
     thumbnailMediaId?: string;
+    thumbnailUrl?: string | null;
     tags?: string[];
     status: BlogStatus;
     readingTime: number;
@@ -158,6 +159,7 @@ export class BlogsRepository {
       slug?: string;
       content?: string;
       thumbnailMediaId?: string | null;
+      thumbnailUrl?: string | null;
       tags?: string[] | null;
       status?: BlogStatus;
       readingTime?: number;

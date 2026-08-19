@@ -30,7 +30,7 @@ export const comments = pgTable(
       .defaultNow(),
     parentCommentId: uuid('parent_comment_id').references(
       (): AnyPgColumn => comments.id,
-      { onDelete: 'set null' },
+      { onDelete: 'cascade' },
     ),
     isReply: boolean('is_reply').notNull().default(false),
   },

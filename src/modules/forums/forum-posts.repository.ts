@@ -5,30 +5,29 @@ import {
   type CursorPayload,
 } from '../../common/helpers/cursor-pagination.helper';
 import { DatabaseService } from '../../database/database.service';
-import { blogs } from '../../database/schema/blogs.schema';
-import { comments } from '../../database/schema/comments.schema';
+import { forumPosts } from '../../database/schema/forums.schema';
 
 @Injectable()
-export class CommentsRepository {
+export class ForumPostsRepository {
   constructor(
     @Inject(DatabaseService)
     private readonly database: DatabaseService,
   ) {}
 
   async create(data: {
-    blogId: string;
+    topicId: string;
     userId: string;
     content: string;
-    parentCommentId?: string | null;
+    parentPostId?: string | null;
     isReply: boolean;
   }) {
     const [record] = await this.database.db
-      .insert(comments)
+      .insert(forumPosts)
       .values({
-        blogId: data.blogId,
+        topicId: data.topicId,
         userId: data.userId,
         content: data.content,
-        parentCommentId: data.parentCommentId,
+        parentPostId: data.parentPostId,
         isReply: data.isReply,
         isActive: true,
       })
@@ -39,39 +38,26 @@ export class CommentsRepository {
   async findActiveById(id: string) {
     const [record] = await this.database.db
       .select()
-      .from(comments)
-      .where(and(eq(comments.id, id), eq(comments.isActive, true)))
+      .from(forumPosts)
+      .where(and(eq(forumPosts.id, id), eq(forumPosts.isActive, true)))
       .limit(1);
     return record;
   }
 
-  async findActiveWithBlogOwner(commentId: string) {
-    const [record] = await this.database.db
-      .select({
-        comment: comments,
-        blogUserId: blogs.userId,
-      })
-      .from(comments)
-      .leftJoin(blogs, eq(comments.blogId, blogs.id))
-      .where(and(eq(comments.id, commentId), eq(comments.isActive, true)))
-      .limit(1);
-    return record;
-  }
-
-  async listActiveByBlogId(params: {
-    blogId: string;
+  async listActiveByTopicId(params: {
+    topicId: string;
     limit: number;
     cursor?: CursorPayload;
   }) {
     const conditions: SQL[] = [
-      eq(comments.blogId, params.blogId),
-      eq(comments.isActive, true),
+      eq(forumPosts.topicId, params.topicId),
+      eq(forumPosts.isActive, true),
     ];
 
     if (params.cursor) {
       const cursorFilter = buildCursorCondition(
-        comments.createdAt,
-        comments.id,
+        forumPosts.createdAt,
+        forumPosts.id,
         params.cursor,
       );
       if (cursorFilter) {
@@ -81,58 +67,52 @@ export class CommentsRepository {
 
     return this.database.db
       .select()
-      .from(comments)
+      .from(forumPosts)
       .where(and(...conditions))
-      .orderBy(desc(comments.createdAt), desc(comments.id))
+      .orderBy(desc(forumPosts.createdAt), desc(forumPosts.id))
       .limit(params.limit + 1);
   }
 
   async updateContent(id: string, content: string) {
     const [record] = await this.database.db
-      .update(comments)
+      .update(forumPosts)
       .set({
         content,
         updatedAt: new Date(),
       })
-      .where(eq(comments.id, id))
+      .where(eq(forumPosts.id, id))
       .returning();
     return record;
   }
 
   async softDelete(id: string) {
     const result = await this.database.db.execute(sql`
-      WITH RECURSIVE comment_tree AS (
-        SELECT id FROM comments WHERE id = ${id}::uuid
+      WITH RECURSIVE post_tree AS (
+        SELECT id FROM forum_posts WHERE id = ${id}::uuid
         UNION ALL
-        SELECT c.id
-        FROM comments c
-        INNER JOIN comment_tree t ON c.parent_comment_id = t.id
+        SELECT p.id
+        FROM forum_posts p
+        INNER JOIN post_tree t ON p.parent_post_id = t.id
       )
-      UPDATE comments
+      UPDATE forum_posts
       SET is_active = false,
           updated_at = now()
-      WHERE id IN (SELECT id FROM comment_tree)
+      WHERE id IN (SELECT id FROM post_tree)
         AND is_active = true
       RETURNING id
     `);
 
-    const rows =
-      (
-        result as unknown as {
-          rows?: { id: string }[];
-        }
-      ).rows ?? [];
-    return rows;
+    return (result as unknown as { rows?: { id: string }[] }).rows ?? [];
   }
 
-  async findActiveByParentId(parentCommentId: string) {
+  async findActiveByParentId(parentPostId: string) {
     return this.database.db
       .select()
-      .from(comments)
+      .from(forumPosts)
       .where(
         and(
-          eq(comments.parentCommentId, parentCommentId),
-          eq(comments.isActive, true),
+          eq(forumPosts.parentPostId, parentPostId),
+          eq(forumPosts.isActive, true),
         ),
       );
   }
