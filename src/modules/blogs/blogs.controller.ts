@@ -13,6 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiConflictResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -46,7 +47,15 @@ export class BlogsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiUserIdentityHeaders()
-  @ApiOperation({ summary: 'Create a blog' })
+  @ApiOperation({
+    summary: 'Create a blog',
+    description:
+      'Omit status or send DRAFT to save an incomplete draft (title, slug, and content may be omitted). Send status PENDING_REVIEW to submit for approval; title, slug, and content are then required by DTO validation.',
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Approval validation failed, or the request body failed type/format checks',
+  })
   @ApiConflictResponse({ description: 'Duplicate slug' })
   async create(
     @UserIdentity() identity: AppUserIdentity,
@@ -86,9 +95,16 @@ export class BlogsController {
 
   @Patch(':id')
   @ApiUserIdentityHeaders()
-  @ApiOperation({ summary: 'Update an owned blog' })
+  @ApiOperation({
+    summary: 'Update an owned blog',
+    description:
+      'Partial updates are allowed while status is DRAFT. Setting status to PENDING_REVIEW requires title, slug, and content in the request body (DTO validation).'
+  })
   @ApiNotFoundResponse({ description: 'Blog not found' })
   @ApiForbiddenResponse({ description: 'Not the blog owner' })
+  @ApiBadRequestResponse({
+    description: 'Approval validation failed, empty update, or invalid fields',
+  })
   @ApiConflictResponse({ description: 'Duplicate slug' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,

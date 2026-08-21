@@ -1,40 +1,78 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
   IsIn,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
   MaxLength,
-  MinLength,
   ValidateIf,
 } from 'class-validator';
-import { BLOG_STATUSES, type BlogStatus } from './create-blog.dto';
+import {
+  BLOG_STATUSES,
+  requiresCompleteBlogFields,
+  type BlogStatus,
+} from '../blog-fields.helper';
+
+function emptyToUndefined(value: unknown) {
+  if (value === null) {
+    return null;
+  }
+  if (typeof value === 'string' && value.trim() === '') {
+    return undefined;
+  }
+  return typeof value === 'string' ? value.trim() : value;
+}
 
 export class UpdateBlogDto {
-  @ApiPropertyOptional({ example: 'Updated blog title' })
-  @IsOptional()
+  @ApiPropertyOptional({
+    example: 'Updated blog title',
+    description:
+      'Optional for DRAFT. Required in the request body when status is PENDING_REVIEW or PUBLISHED.',
+  })
+  @Transform(({ value }) => emptyToUndefined(value))
+  @ValidateIf(
+    (o: UpdateBlogDto) =>
+      requiresCompleteBlogFields(o.status) || o.title !== undefined,
+  )
   @IsString()
-  @MinLength(1)
+  @IsNotEmpty()
   @MaxLength(255)
   title?: string;
 
-  @ApiPropertyOptional({ example: 'updated-blog-title' })
-  @IsOptional()
+  @ApiPropertyOptional({
+    example: 'updated-blog-title',
+    description:
+      'Optional for DRAFT. Required and must be a valid slug when status is PENDING_REVIEW or PUBLISHED.',
+  })
+  @Transform(({ value }) => emptyToUndefined(value))
+  @ValidateIf(
+    (o: UpdateBlogDto) =>
+      requiresCompleteBlogFields(o.status) || o.slug !== undefined,
+  )
   @IsString()
-  @MinLength(1)
+  @IsNotEmpty()
   @MaxLength(255)
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
     message: 'slug must be lowercase letters, numbers, and hyphens',
   })
   slug?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiPropertyOptional({
+    description:
+      'Optional for DRAFT. Required when status is PENDING_REVIEW or PUBLISHED.',
+  })
+  @Transform(({ value }) => emptyToUndefined(value))
+  @ValidateIf(
+    (o: UpdateBlogDto) =>
+      requiresCompleteBlogFields(o.status) || o.content !== undefined,
+  )
   @IsString()
-  @MinLength(1)
+  @IsNotEmpty()
   content?: string;
 
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
@@ -52,7 +90,24 @@ export class UpdateBlogDto {
   @MaxLength(50, { each: true })
   tags?: string[] | null;
 
-  @ApiPropertyOptional({ enum: BLOG_STATUSES })
+  @ApiPropertyOptional({
+    type: [String],
+    nullable: true,
+    description: 'Optional external links. Never required for PENDING_REVIEW.',
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(2048, { each: true })
+  links?: string[] | null;
+
+  @ApiPropertyOptional({
+    enum: BLOG_STATUSES,
+    description:
+      'DRAFT allows incomplete fields. PENDING_REVIEW and PUBLISHED require title, slug, and content in this request.',
+  })
   @IsOptional()
   @IsIn(BLOG_STATUSES)
   status?: BlogStatus;

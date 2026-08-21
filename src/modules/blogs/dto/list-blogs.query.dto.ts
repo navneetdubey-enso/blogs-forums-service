@@ -22,7 +22,10 @@ export class ListBlogsQueryDto {
   @IsIn(BLOG_STATUSES)
   status?: BlogStatus;
 
-  @ApiPropertyOptional({ description: 'Search in blog title and content' })
+  @ApiPropertyOptional({
+    description:
+      'Full-text search across blog title and content (PostgreSQL websearch_to_tsquery)',
+  })
   @IsOptional()
   @IsString()
   search?: string;

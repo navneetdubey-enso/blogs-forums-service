@@ -22,31 +22,31 @@ import {
 import { ServiceAuthGuard } from '../../common/guards/service-auth.guard';
 import { apiSuccess } from '../../common/helpers/api-response.helper';
 import type { AppUserIdentity } from '../users/users.service';
-import { UpdatePostDto } from './dto/update-post.dto';
+import { UpdateForumCommentDto } from './dto/update-forum-comment.dto';
 import { ForumsService } from './forums.service';
 
-@ApiTags('Forum Posts')
+@ApiTags('Forum Comments')
 @ApiSecurity('service-auth')
 @ApiUnauthorizedResponse({ description: 'Invalid or missing service token' })
-@Controller('api/v1/posts')
+@Controller('api/v1/forum-comments')
 @UseGuards(ServiceAuthGuard)
-export class ForumPostsController {
+export class ForumCommentsController {
   constructor(private readonly forumsService: ForumsService) {}
 
   @Patch(':id')
   @ApiUserIdentityHeaders()
-  @ApiOperation({ summary: 'Update a post (author only)' })
-  @ApiNotFoundResponse({ description: 'Post not found' })
-  @ApiForbiddenResponse({ description: 'Not the post author' })
+  @ApiOperation({ summary: 'Update a forum comment (author only)' })
+  @ApiNotFoundResponse({ description: 'Comment not found' })
+  @ApiForbiddenResponse({ description: 'Not the comment author' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdatePostDto,
+    @Body() dto: UpdateForumCommentDto,
     @UserIdentity() identity: AppUserIdentity,
   ) {
     return apiSuccess(
       200,
-      'Post updated successfully',
-      await this.forumsService.updatePost(id, dto, identity),
+      'Comment updated successfully',
+      await this.forumsService.updateComment(id, dto, identity),
     );
   }
 
@@ -54,11 +54,11 @@ export class ForumPostsController {
   @ApiUserIdentityHeaders()
   @ApiOperation({
     summary:
-      'Soft delete a post and nested replies (post author or topic owner)',
+      'Soft delete a forum comment and nested replies (comment author or topic owner)',
   })
-  @ApiNotFoundResponse({ description: 'Post not found' })
+  @ApiNotFoundResponse({ description: 'Comment not found' })
   @ApiForbiddenResponse({
-    description: 'Not the post author or topic owner',
+    description: 'Not the comment author or topic owner',
   })
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
@@ -66,8 +66,8 @@ export class ForumPostsController {
   ) {
     return apiSuccess(
       200,
-      'Post deleted successfully',
-      await this.forumsService.deletePost(id, identity),
+      'Comment deleted successfully',
+      await this.forumsService.deleteComment(id, identity),
     );
   }
 }

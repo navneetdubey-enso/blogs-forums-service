@@ -128,7 +128,7 @@ export class ForumTopicsRepository {
 
     if (record) {
       await this.database.db.execute(sql`
-        UPDATE forum_posts
+        UPDATE forum_comments
         SET is_active = false,
             updated_at = now()
         WHERE topic_id = ${id}::uuid

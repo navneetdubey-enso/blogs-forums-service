@@ -1,6 +1,7 @@
 import {
   boolean,
   index,
+  integer,
   pgEnum,
   pgTable,
   text,
@@ -24,6 +25,7 @@ export const forums = pgTable(
     name: varchar('name', { length: 255 }).notNull(),
     slug: varchar('slug', { length: 255 }).notNull(),
     description: text('description'),
+    likeCount: integer('like_count').notNull().default(0),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -69,8 +71,8 @@ export const forumTopics = pgTable(
   }),
 );
 
-export const forumPosts = pgTable(
-  'forum_posts',
+export const forumComments = pgTable(
+  'forum_comments',
   {
     id: uuid('id').defaultRandom().primaryKey(),
     topicId: uuid('topic_id')
@@ -80,8 +82,8 @@ export const forumPosts = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     content: text('content').notNull(),
-    parentPostId: uuid('parent_post_id').references(
-      (): AnyPgColumn => forumPosts.id,
+    parentCommentId: uuid('parent_comment_id').references(
+      (): AnyPgColumn => forumComments.id,
       { onDelete: 'cascade' },
     ),
     isReply: boolean('is_reply').notNull().default(false),
@@ -94,13 +96,13 @@ export const forumPosts = pgTable(
       .defaultNow(),
   },
   (table) => ({
-    topicCreatedAtIdIdx: index('idx_forum_posts_topic_created_at_id').on(
+    topicCreatedAtIdIdx: index('idx_forum_comments_topic_created_at_id').on(
       table.topicId,
       table.createdAt,
       table.id,
     ),
-    parentPostIdIdx: index('idx_forum_posts_parent_post_id').on(
-      table.parentPostId,
+    parentCommentIdIdx: index('idx_forum_comments_parent_comment_id').on(
+      table.parentCommentId,
     ),
   }),
 );

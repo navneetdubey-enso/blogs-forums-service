@@ -1,10 +1,10 @@
 import { ForbiddenException } from '@nestjs/common';
-import { ForumPostsRepository } from './forum-posts.repository';
+import type { AppUserIdentity } from '../users/users.service';
+import { UsersService } from '../users/users.service';
+import { ForumCommentsRepository } from './forum-comments.repository';
 import { ForumTopicsRepository } from './forum-topics.repository';
 import { ForumsRepository } from './forums.repository';
 import { ForumsService } from './forums.service';
-import type { AppUserIdentity } from '../users/users.service';
-import { UsersService } from '../users/users.service';
 
 const identity: AppUserIdentity = {
   appType: 'INFOCALLING',
@@ -16,6 +16,8 @@ const identity: AppUserIdentity = {
 describe('ForumsService', () => {
   const userId = 'user-1';
   const forumId = 'forum-1';
+  const topicId = 'topic-1';
+  const commentId = 'comment-1';
 
   const forumsRepository = {
     findActiveById: jest.fn(),
@@ -25,6 +27,7 @@ describe('ForumsService', () => {
     findBySlugExcludingId: jest.fn(),
     update: jest.fn(),
     softDelete: jest.fn(),
+    findLikeByForumAndUser: jest.fn(),
   };
 
   const topicsRepository = {
@@ -37,7 +40,7 @@ describe('ForumsService', () => {
     softDelete: jest.fn(),
   };
 
-  const postsRepository = {
+  const commentsRepository = {
     create: jest.fn(),
     findActiveById: jest.fn(),
     listActiveByTopicId: jest.fn(),
@@ -57,21 +60,48 @@ describe('ForumsService', () => {
     forumsRepository.findActiveById.mockResolvedValue({
       id: forumId,
       isActive: true,
+      likeCount: 0,
     });
     forumsRepository.findBySlug.mockResolvedValue(undefined);
+    forumsRepository.create.mockImplementation((data: unknown) =>
+      Promise.resolve({ id: forumId, ...(data as object), likeCount: 0 }),
+    );
     topicsRepository.findBySlug.mockResolvedValue(undefined);
     topicsRepository.create.mockImplementation((data: unknown) =>
-      Promise.resolve(data),
+      Promise.resolve({ id: topicId, ...(data as object) }),
     );
+    topicsRepository.findActiveById.mockResolvedValue({
+      id: topicId,
+      forumId,
+      userId,
+      isActive: true,
+    });
+    commentsRepository.create.mockImplementation((data: unknown) =>
+      Promise.resolve({ id: commentId, ...(data as object) }),
+    );
+    commentsRepository.listActiveByTopicId.mockResolvedValue([]);
     usersService.require.mockResolvedValue({ id: userId });
     usersService.resolve.mockResolvedValue({ id: userId });
 
     service = new ForumsService(
       forumsRepository as unknown as ForumsRepository,
       topicsRepository as unknown as ForumTopicsRepository,
-      postsRepository as unknown as ForumPostsRepository,
+      commentsRepository as unknown as ForumCommentsRepository,
       usersService as unknown as UsersService,
     );
+  });
+
+  it('creates a forum', async () => {
+    const forum = await service.createForum({
+      name: 'General',
+      slug: 'general',
+    });
+    expect(forumsRepository.create).toHaveBeenCalledWith({
+      name: 'General',
+      slug: 'general',
+      description: undefined,
+    });
+    expect(forum.id).toBe(forumId);
   });
 
   it('creates a topic without client user_id and defaults status to DRAFT', async () => {
@@ -93,6 +123,83 @@ describe('ForumsService', () => {
       content: 'body',
       status: 'DRAFT',
     });
+  });
+
+  it('creates a comment in a topic', async () => {
+    const comment = await service.createComment(
+      topicId,
+      { content: 'First comment' },
+      identity,
+    );
+    expect(commentsRepository.create).toHaveBeenCalledWith({
+      topicId,
+      userId,
+      content: 'First comment',
+      parentCommentId: null,
+      isReply: false,
+    });
+    expect(comment.id).toBe(commentId);
+  });
+
+  it('creates a reply using parentCommentId', async () => {
+    commentsRepository.findActiveById.mockResolvedValue({
+      id: 'parent-1',
+      topicId,
+      isActive: true,
+    });
+
+    await service.createComment(
+      topicId,
+      { content: 'Reply', parentCommentId: 'parent-1' },
+      identity,
+    );
+
+    expect(commentsRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentCommentId: 'parent-1',
+        isReply: true,
+      }),
+    );
+  });
+
+  it('lists comments in a topic', async () => {
+    commentsRepository.listActiveByTopicId.mockResolvedValue([
+      { id: commentId, content: 'First comment' },
+    ]);
+    const result = await service.listComments(topicId, {});
+    expect(result.items).toHaveLength(1);
+    expect(commentsRepository.listActiveByTopicId).toHaveBeenCalled();
+  });
+
+  it('updates a comment', async () => {
+    commentsRepository.findActiveById.mockResolvedValue({
+      id: commentId,
+      userId,
+      topicId,
+    });
+    commentsRepository.updateContent.mockResolvedValue({
+      id: commentId,
+      content: 'Edited',
+    });
+
+    await service.updateComment(commentId, { content: 'Edited' }, identity);
+    expect(commentsRepository.updateContent).toHaveBeenCalledWith(
+      commentId,
+      'Edited',
+    );
+  });
+
+  it('soft-deletes a comment', async () => {
+    commentsRepository.findActiveById.mockResolvedValue({
+      id: commentId,
+      userId,
+      topicId,
+    });
+    commentsRepository.softDelete.mockResolvedValue([{ id: commentId }]);
+
+    const result = await service.deleteComment(commentId, identity);
+    expect(commentsRepository.softDelete).toHaveBeenCalledWith(commentId);
+    expect(result).toEqual({ id: commentId, isActive: false });
   });
 
   it('rejects my-topics listing when user_id does not match the mapped user', async () => {

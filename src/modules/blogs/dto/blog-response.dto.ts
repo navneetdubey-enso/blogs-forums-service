@@ -12,14 +12,14 @@ export class BlogResponseDto {
   @ApiProperty()
   userId: string;
 
-  @ApiProperty()
-  title: string;
+  @ApiPropertyOptional({ nullable: true })
+  title: string | null;
 
-  @ApiProperty()
-  slug: string;
+  @ApiPropertyOptional({ nullable: true })
+  slug: string | null;
 
-  @ApiProperty()
-  content: string;
+  @ApiPropertyOptional({ nullable: true })
+  content: string | null;
 
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
   thumbnailMediaId: string | null;
@@ -30,7 +30,14 @@ export class BlogResponseDto {
   @ApiPropertyOptional({ type: [String], nullable: true })
   tags: string[] | null;
 
-  @ApiProperty({ enum: ['DRAFT', 'PUBLISHED'] })
+  @ApiPropertyOptional({
+    type: [String],
+    nullable: true,
+    description: 'Optional external links. Never required for approval.',
+  })
+  links: string[] | null;
+
+  @ApiProperty({ enum: ['DRAFT', 'PENDING_REVIEW', 'PUBLISHED'] })
   status: BlogStatus;
 
   @ApiPropertyOptional({ nullable: true })
@@ -67,6 +74,7 @@ export class BlogResponseDto {
       thumbnailMediaId: row.thumbnailMediaId,
       thumbnailUrl: extras?.thumbnailUrl ?? row.thumbnailUrl ?? null,
       tags: row.tags,
+      links: row.links,
       status: row.status,
       readingTime: row.readingTime,
       likeCount: row.likeCount,

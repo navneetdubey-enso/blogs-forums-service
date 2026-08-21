@@ -1,17 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 
-export class CreatePostDto {
-  @ApiProperty({ description: 'Post text content' })
+export class CreateForumCommentDto {
+  @ApiProperty({ description: 'Comment text content' })
   @IsString()
   @IsNotEmpty()
   content: string;
 
   @ApiPropertyOptional({
     format: 'uuid',
-    description: 'Parent post ID when creating a reply',
+    description: 'Parent comment ID when creating a reply',
   })
   @IsOptional()
   @IsUUID()
-  parentPostId?: string;
+  parentCommentId?: string;
 }

@@ -5,6 +5,7 @@ import {
   type CursorPayload,
 } from '../../common/helpers/cursor-pagination.helper';
 import { DatabaseService } from '../../database/database.service';
+import { forumLikes } from '../../database/schema/forum-likes.schema';
 import { forums } from '../../database/schema/forums.schema';
 
 @Injectable()
@@ -38,6 +39,15 @@ export class ForumsRepository {
     return this.database.db.query.forums.findFirst({
       where: and(eq(forums.slug, slug), ne(forums.id, id)),
     });
+  }
+
+  async findLikeByForumAndUser(forumId: string, userId: string) {
+    const [record] = await this.database.db
+      .select({ id: forumLikes.id })
+      .from(forumLikes)
+      .where(and(eq(forumLikes.forumId, forumId), eq(forumLikes.userId, userId)))
+      .limit(1);
+    return record;
   }
 
   async listActive(params: {
