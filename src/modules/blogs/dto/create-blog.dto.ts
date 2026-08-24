@@ -15,16 +15,18 @@ import {
 import {
   BLOG_STATUSES,
   requiresCompleteBlogFields,
-  type BlogStatus,
 } from '../blog-fields.helper';
-
-export { BLOG_STATUSES };
-export type { BlogStatus };
-
 import { BlogStatus } from '../enums/blog.enum';
 
-export const BLOG_STATUSES = ['DRAFT', 'PUBLISHED'] as const;
+export { BLOG_STATUSES };
 export { BlogStatus };
+
+function emptyToUndefined(value: unknown) {
+  if (typeof value === 'string' && value.trim() === '') {
+    return undefined;
+  }
+  return typeof value === 'string' ? value.trim() : value;
+}
 
 export class CreateBlogDto {
   @ApiPropertyOptional({

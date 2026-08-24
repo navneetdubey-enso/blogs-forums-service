@@ -1,12 +1,13 @@
+import { BlogStatus } from './enums/blog.enum';
+
 export const BLOG_STATUSES = [
-  'DRAFT',
-  'PENDING_REVIEW',
-  'PUBLISHED',
+  BlogStatus.DRAFT,
+  BlogStatus.PENDING_REVIEW,
+  BlogStatus.PUBLISHED,
 ] as const;
-export type BlogStatus = (typeof BLOG_STATUSES)[number];
 
 export function requiresCompleteBlogFields(status?: BlogStatus) {
-  return status === 'PENDING_REVIEW' || status === 'PUBLISHED';
+  return status === BlogStatus.PENDING_REVIEW || status === BlogStatus.PUBLISHED;
 }
 
 export function normalizeOptionalText(
