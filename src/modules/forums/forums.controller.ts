@@ -21,7 +21,9 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import {
+  ApiOptionalUserIdentityHeaders,
   ApiUserIdentityHeaders,
+  OptionalUserIdentity,
   UserIdentity,
 } from '../../common/decorators/user-identity.decorator';
 import { ServiceAuthGuard } from '../../common/guards/service-auth.guard';
@@ -65,13 +67,17 @@ export class ForumsController {
   }
 
   @Get(':id')
+  @ApiOptionalUserIdentityHeaders()
   @ApiOperation({ summary: 'Get an active forum by id' })
   @ApiNotFoundResponse({ description: 'Forum not found' })
-  async getById(@Param('id', ParseUUIDPipe) id: string) {
+  async getById(
+    @Param('id', ParseUUIDPipe) id: string,
+    @OptionalUserIdentity() identity?: AppUserIdentity,
+  ) {
     return apiSuccess(
       200,
       'Forum retrieved successfully',
-      await this.forumsService.getForum(id),
+      await this.forumsService.getForum(id, identity),
     );
   }
 

@@ -1,4 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
@@ -9,7 +10,16 @@ import {
   IsUUID,
   Matches,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
+import {
+  BLOG_STATUSES,
+  requiresCompleteBlogFields,
+  type BlogStatus,
+} from '../blog-fields.helper';
+
+export { BLOG_STATUSES };
+export type { BlogStatus };
 
 import { BlogStatus } from '../enums/blog.enum';
 
@@ -17,25 +27,52 @@ export const BLOG_STATUSES = ['DRAFT', 'PUBLISHED'] as const;
 export { BlogStatus };
 
 export class CreateBlogDto {
-  @ApiProperty({ example: 'Getting started with blogs' })
+  @ApiPropertyOptional({
+    example: 'Getting started with blogs',
+    description:
+      'Optional for DRAFT. Required when status is PENDING_REVIEW or PUBLISHED.',
+  })
+  @Transform(({ value }) => emptyToUndefined(value))
+  @ValidateIf(
+    (o: CreateBlogDto) =>
+      requiresCompleteBlogFields(o.status) || o.title !== undefined,
+  )
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  title: string;
+  title?: string;
 
-  @ApiProperty({ example: 'getting-started-with-blogs' })
+  @ApiPropertyOptional({
+    example: 'getting-started-with-blogs',
+    description:
+      'Optional for DRAFT. Required and must be a valid slug when status is PENDING_REVIEW or PUBLISHED.',
+  })
+  @Transform(({ value }) => emptyToUndefined(value))
+  @ValidateIf(
+    (o: CreateBlogDto) =>
+      requiresCompleteBlogFields(o.status) || o.slug !== undefined,
+  )
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
     message: 'slug must be lowercase letters, numbers, and hyphens',
   })
-  slug: string;
+  slug?: string;
 
-  @ApiProperty({ example: 'This is the blog content.' })
+  @ApiPropertyOptional({
+    example: 'This is the blog content.',
+    description:
+      'Optional for DRAFT. Required when status is PENDING_REVIEW or PUBLISHED.',
+  })
+  @Transform(({ value }) => emptyToUndefined(value))
+  @ValidateIf(
+    (o: CreateBlogDto) =>
+      requiresCompleteBlogFields(o.status) || o.content !== undefined,
+  )
   @IsString()
   @IsNotEmpty()
-  content: string;
+  content?: string;
 
   @ApiPropertyOptional({
     format: 'uuid',
@@ -54,10 +91,22 @@ export class CreateBlogDto {
   tags?: string[];
 
   @ApiPropertyOptional({
+    type: [String],
+    example: ['https://example.com/docs'],
+    description: 'Optional external links. Never required for PENDING_REVIEW.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(2048, { each: true })
+  links?: string[];
+
+  @ApiPropertyOptional({
     enum: BLOG_STATUSES,
     example: 'DRAFT',
     description:
-      'Optional. Defaults to DRAFT. Determined by the backend when omitted.',
+      'Optional. Defaults to DRAFT. DRAFT allows incomplete title/slug/content. PENDING_REVIEW and PUBLISHED require title, slug, and content.',
   })
   @IsOptional()
   @IsIn(BLOG_STATUSES)

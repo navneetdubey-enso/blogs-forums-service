@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ForumPostsController } from './forum-posts.controller';
-import { ForumPostsRepository } from './forum-posts.repository';
+import { ForumCommentsController } from './forum-comments.controller';
+import { ForumCommentsRepository } from './forum-comments.repository';
 import { ForumTopicsController } from './forum-topics.controller';
 import { ForumTopicsRepository } from './forum-topics.repository';
 import { ForumsController } from './forums.controller';
@@ -12,14 +12,15 @@ import { MyTopicsController } from './my-topics.controller';
   controllers: [
     ForumsController,
     ForumTopicsController,
-    ForumPostsController,
+    ForumCommentsController,
     MyTopicsController,
   ],
   providers: [
     ForumsRepository,
     ForumTopicsRepository,
-    ForumPostsRepository,
+    ForumCommentsRepository,
     ForumsService,
   ],
+  exports: [ForumsRepository],
 })
 export class ForumsModule {}

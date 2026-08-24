@@ -14,16 +14,16 @@ import { isUniqueViolation } from '../../common/helpers/postgres.helper';
 import type { AppUserIdentity } from '../users/users.service';
 import { UsersService } from '../users/users.service';
 import { CreateForumDto } from './dto/create-forum.dto';
-import { CreatePostDto } from './dto/create-post.dto';
+import { CreateForumCommentDto } from './dto/create-forum-comment.dto';
 import { CreateTopicDto } from './dto/create-topic.dto';
 import { ListForumsQueryDto } from './dto/list-forums.query.dto';
+import { ListForumCommentsQueryDto } from './dto/list-forum-comments.query.dto';
 import { ListMyTopicsQueryDto } from './dto/list-my-topics.query.dto';
-import { ListPostsQueryDto } from './dto/list-posts.query.dto';
 import { ListTopicsQueryDto } from './dto/list-topics.query.dto';
 import { UpdateForumDto } from './dto/update-forum.dto';
-import { UpdatePostDto } from './dto/update-post.dto';
+import { UpdateForumCommentDto } from './dto/update-forum-comment.dto';
 import { UpdateTopicDto } from './dto/update-topic.dto';
-import { ForumPostsRepository } from './forum-posts.repository';
+import { ForumCommentsRepository } from './forum-comments.repository';
 import { ForumTopicsRepository } from './forum-topics.repository';
 import { ForumsRepository } from './forums.repository';
 
@@ -34,8 +34,8 @@ export class ForumsService {
     private readonly forumsRepository: ForumsRepository,
     @Inject(ForumTopicsRepository)
     private readonly topicsRepository: ForumTopicsRepository,
-    @Inject(ForumPostsRepository)
-    private readonly postsRepository: ForumPostsRepository,
+    @Inject(ForumCommentsRepository)
+    private readonly commentsRepository: ForumCommentsRepository,
     @Inject(UsersService)
     private readonly usersService: UsersService,
   ) {}
@@ -73,12 +73,27 @@ export class ForumsService {
     return { items: page.items, nextCursor: page.nextCursor };
   }
 
-  async getForum(id: string) {
+  async getForum(id: string, identity?: AppUserIdentity) {
     const forum = await this.forumsRepository.findActiveById(id);
     if (!forum) {
       throw new NotFoundException('Forum not found');
     }
-    return forum;
+
+    let isLikedByCurrentUser: boolean | undefined;
+    if (identity) {
+      const user = await this.usersService.resolve(identity);
+      if (user) {
+        const like = await this.forumsRepository.findLikeByForumAndUser(
+          id,
+          user.id,
+        );
+        isLikedByCurrentUser = !!like;
+      }
+    }
+
+    return identity
+      ? { ...forum, isLikedByCurrentUser }
+      : forum;
   }
 
   async updateForum(id: string, dto: UpdateForumDto) {
@@ -256,47 +271,47 @@ export class ForumsService {
     return { id: record.id, isActive: record.isActive };
   }
 
-  async createPost(
+  async createComment(
     topicId: string,
-    dto: CreatePostDto,
+    dto: CreateForumCommentDto,
     identity: AppUserIdentity,
   ) {
     await this.getTopic(topicId);
     const user = await this.usersService.require(identity, true);
 
-    let parentPostId: string | null = null;
+    let parentCommentId: string | null = null;
     let isReply = false;
 
-    if (dto.parentPostId) {
-      const parent = await this.postsRepository.findActiveById(
-        dto.parentPostId,
+    if (dto.parentCommentId) {
+      const parent = await this.commentsRepository.findActiveById(
+        dto.parentCommentId,
       );
       if (!parent) {
-        throw new NotFoundException('Parent post not found');
+        throw new NotFoundException('Parent comment not found');
       }
       if (parent.topicId !== topicId) {
         throw new BadRequestException(
-          'Parent post does not belong to this topic',
+          'Parent comment does not belong to this topic',
         );
       }
-      parentPostId = parent.id;
+      parentCommentId = parent.id;
       isReply = true;
     }
 
-    return this.postsRepository.create({
+    return this.commentsRepository.create({
       topicId,
       userId: user.id,
       content: dto.content,
-      parentPostId,
+      parentCommentId,
       isReply,
     });
   }
 
-  async listPosts(topicId: string, query: ListPostsQueryDto) {
+  async listComments(topicId: string, query: ListForumCommentsQueryDto) {
     await this.getTopic(topicId);
     const limit = query.limit ?? 10;
     const cursor = query.cursor ? decodeCursor(query.cursor) : undefined;
-    const rows = await this.postsRepository.listActiveByTopicId({
+    const rows = await this.commentsRepository.listActiveByTopicId({
       topicId,
       limit,
       cursor,
@@ -312,40 +327,44 @@ export class ForumsService {
     };
   }
 
-  async updatePost(id: string, dto: UpdatePostDto, identity: AppUserIdentity) {
-    const existing = await this.postsRepository.findActiveById(id);
+  async updateComment(
+    id: string,
+    dto: UpdateForumCommentDto,
+    identity: AppUserIdentity,
+  ) {
+    const existing = await this.commentsRepository.findActiveById(id);
     if (!existing) {
-      throw new NotFoundException('Post not found');
+      throw new NotFoundException('Comment not found');
     }
 
     const user = await this.usersService.resolve(identity);
     if (!user || existing.userId !== user.id) {
       throw new ForbiddenException(
-        'You are not authorized to update this post',
+        'You are not authorized to update this comment',
       );
     }
 
-    return this.postsRepository.updateContent(id, dto.content);
+    return this.commentsRepository.updateContent(id, dto.content);
   }
 
-  async deletePost(id: string, identity: AppUserIdentity) {
-    const existing = await this.postsRepository.findActiveById(id);
+  async deleteComment(id: string, identity: AppUserIdentity) {
+    const existing = await this.commentsRepository.findActiveById(id);
     if (!existing) {
-      throw new NotFoundException('Post not found');
+      throw new NotFoundException('Comment not found');
     }
 
     const user = await this.usersService.resolve(identity);
     const topic = await this.topicsRepository.findActiveById(existing.topicId);
-    const isPostAuthor = !!user && existing.userId === user.id;
+    const isCommentAuthor = !!user && existing.userId === user.id;
     const isTopicOwner = !!user && topic?.userId === user.id;
 
-    if (!isPostAuthor && !isTopicOwner) {
+    if (!isCommentAuthor && !isTopicOwner) {
       throw new ForbiddenException(
-        'You are not authorized to delete this post',
+        'You are not authorized to delete this comment',
       );
     }
 
-    await this.postsRepository.softDelete(id);
+    await this.commentsRepository.softDelete(id);
     return { id, isActive: false };
   }
 

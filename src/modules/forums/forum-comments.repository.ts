@@ -5,10 +5,10 @@ import {
   type CursorPayload,
 } from '../../common/helpers/cursor-pagination.helper';
 import { DatabaseService } from '../../database/database.service';
-import { forumPosts } from '../../database/schema/forums.schema';
+import { forumComments } from '../../database/schema/forums.schema';
 
 @Injectable()
-export class ForumPostsRepository {
+export class ForumCommentsRepository {
   constructor(
     @Inject(DatabaseService)
     private readonly database: DatabaseService,
@@ -18,16 +18,16 @@ export class ForumPostsRepository {
     topicId: string;
     userId: string;
     content: string;
-    parentPostId?: string | null;
+    parentCommentId?: string | null;
     isReply: boolean;
   }) {
     const [record] = await this.database.db
-      .insert(forumPosts)
+      .insert(forumComments)
       .values({
         topicId: data.topicId,
         userId: data.userId,
         content: data.content,
-        parentPostId: data.parentPostId,
+        parentCommentId: data.parentCommentId,
         isReply: data.isReply,
         isActive: true,
       })
@@ -38,8 +38,8 @@ export class ForumPostsRepository {
   async findActiveById(id: string) {
     const [record] = await this.database.db
       .select()
-      .from(forumPosts)
-      .where(and(eq(forumPosts.id, id), eq(forumPosts.isActive, true)))
+      .from(forumComments)
+      .where(and(eq(forumComments.id, id), eq(forumComments.isActive, true)))
       .limit(1);
     return record;
   }
@@ -50,14 +50,14 @@ export class ForumPostsRepository {
     cursor?: CursorPayload;
   }) {
     const conditions: SQL[] = [
-      eq(forumPosts.topicId, params.topicId),
-      eq(forumPosts.isActive, true),
+      eq(forumComments.topicId, params.topicId),
+      eq(forumComments.isActive, true),
     ];
 
     if (params.cursor) {
       const cursorFilter = buildCursorCondition(
-        forumPosts.createdAt,
-        forumPosts.id,
+        forumComments.createdAt,
+        forumComments.id,
         params.cursor,
       );
       if (cursorFilter) {
@@ -67,37 +67,37 @@ export class ForumPostsRepository {
 
     return this.database.db
       .select()
-      .from(forumPosts)
+      .from(forumComments)
       .where(and(...conditions))
-      .orderBy(desc(forumPosts.createdAt), desc(forumPosts.id))
+      .orderBy(desc(forumComments.createdAt), desc(forumComments.id))
       .limit(params.limit + 1);
   }
 
   async updateContent(id: string, content: string) {
     const [record] = await this.database.db
-      .update(forumPosts)
+      .update(forumComments)
       .set({
         content,
         updatedAt: new Date(),
       })
-      .where(eq(forumPosts.id, id))
+      .where(eq(forumComments.id, id))
       .returning();
     return record;
   }
 
   async softDelete(id: string) {
     const result = await this.database.db.execute(sql`
-      WITH RECURSIVE post_tree AS (
-        SELECT id FROM forum_posts WHERE id = ${id}::uuid
+      WITH RECURSIVE comment_tree AS (
+        SELECT id FROM forum_comments WHERE id = ${id}::uuid
         UNION ALL
-        SELECT p.id
-        FROM forum_posts p
-        INNER JOIN post_tree t ON p.parent_post_id = t.id
+        SELECT c.id
+        FROM forum_comments c
+        INNER JOIN comment_tree t ON c.parent_comment_id = t.id
       )
-      UPDATE forum_posts
+      UPDATE forum_comments
       SET is_active = false,
           updated_at = now()
-      WHERE id IN (SELECT id FROM post_tree)
+      WHERE id IN (SELECT id FROM comment_tree)
         AND is_active = true
       RETURNING id
     `);
@@ -105,14 +105,14 @@ export class ForumPostsRepository {
     return (result as unknown as { rows?: { id: string }[] }).rows ?? [];
   }
 
-  async findActiveByParentId(parentPostId: string) {
+  async findActiveByParentId(parentCommentId: string) {
     return this.database.db
       .select()
-      .from(forumPosts)
+      .from(forumComments)
       .where(
         and(
-          eq(forumPosts.parentPostId, parentPostId),
-          eq(forumPosts.isActive, true),
+          eq(forumComments.parentCommentId, parentCommentId),
+          eq(forumComments.isActive, true),
         ),
       );
   }

@@ -19,6 +19,7 @@ import type { AppUserIdentity } from '../users/users.service';
 import { UsersService } from '../users/users.service';
 import { BlogsRepository, type BlogWithThumbnail } from './blogs.repository';
 import { BlogResponseDto } from './dto/blog-response.dto';
+import { normalizeOptionalText } from './blog-fields.helper';
 import { CreateBlogDto } from './dto/create-blog.dto';
 import { ListBlogsQueryDto } from './dto/list-blogs.query.dto';
 import { ListMyBlogsQueryDto } from './dto/list-my-blogs.query.dto';
@@ -43,20 +44,25 @@ export class BlogsService {
 
   async create(identity: AppUserIdentity, dto: CreateBlogDto) {
     const user = await this.usersService.require(identity, true);
-    const slug = dto.slug.trim();
+    const title = normalizeOptionalText(dto.title);
+    const slug = normalizeOptionalText(dto.slug);
+    const content = normalizeOptionalText(dto.content);
+    const status = dto.status ?? 'DRAFT';
 
-    const existingSlug = await this.blogsRepository.findBySlug(slug);
-    if (existingSlug) {
-      throw new ConflictException('Blog slug already exists');
+    if (slug) {
+      const existingSlug = await this.blogsRepository.findBySlug(slug);
+      if (existingSlug) {
+        throw new ConflictException('Blog slug already exists');
+      }
     }
 
     try {
       const thumbnailUrl = await this.resolveThumbnailUrl(dto.thumbnailMediaId);
       const record = await this.blogsRepository.create({
         userId: user.id,
-        title: dto.title.trim(),
+        title,
         slug,
-        content: dto.content,
+        content,
         thumbnailMediaId: dto.thumbnailMediaId,
         thumbnailUrl,
         tags: dto.tags,
@@ -208,6 +214,7 @@ export class BlogsService {
       dto.content,
       dto.thumbnailMediaId,
       dto.tags,
+      dto.links,
       dto.status,
     ].some((value) => value !== undefined);
 
@@ -221,9 +228,18 @@ export class BlogsService {
       'You are not allowed to modify this blog',
     );
 
-    if (dto.slug && dto.slug !== blog.slug) {
+    const title =
+      dto.title !== undefined ? normalizeOptionalText(dto.title) : blog.title;
+    const slug =
+      dto.slug !== undefined ? normalizeOptionalText(dto.slug) : blog.slug;
+    const content =
+      dto.content !== undefined
+        ? normalizeOptionalText(dto.content)
+        : blog.content;
+
+    if (slug && slug !== blog.slug) {
       const existingSlug = await this.blogsRepository.findBySlugExcludingId(
-        dto.slug,
+        slug,
         id,
       );
       if (existingSlug) {
@@ -240,17 +256,16 @@ export class BlogsService {
 
     try {
       const record = await this.blogsRepository.update(id, {
-        title: dto.title?.trim(),
-        slug: dto.slug,
-        content: dto.content,
+        title: dto.title !== undefined ? title : undefined,
+        slug: dto.slug !== undefined ? slug : undefined,
+        content: dto.content !== undefined ? content : undefined,
         thumbnailMediaId: dto.thumbnailMediaId,
         thumbnailUrl,
         tags: dto.tags,
+        links: dto.links,
         status: dto.status,
         readingTime:
-          dto.content !== undefined
-            ? calculateReadingTime(dto.content)
-            : undefined,
+          dto.content !== undefined ? this.readingTimeFor(content) : undefined,
       });
 
       if (!record) {
@@ -331,6 +346,10 @@ export class BlogsService {
       thumbnailUrl,
       isLikedByCurrentUser,
     });
+  }
+
+  private readingTimeFor(content: string | null): number | null {
+    return content ? calculateReadingTime(content) : null;
   }
 
   private async resolveThumbnailUrl(mediaId?: string | null) {

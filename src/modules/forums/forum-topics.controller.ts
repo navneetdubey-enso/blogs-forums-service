@@ -26,8 +26,8 @@ import {
 import { ServiceAuthGuard } from '../../common/guards/service-auth.guard';
 import { apiSuccess } from '../../common/helpers/api-response.helper';
 import type { AppUserIdentity } from '../users/users.service';
-import { CreatePostDto } from './dto/create-post.dto';
-import { ListPostsQueryDto } from './dto/list-posts.query.dto';
+import { CreateForumCommentDto } from './dto/create-forum-comment.dto';
+import { ListForumCommentsQueryDto } from './dto/list-forum-comments.query.dto';
 import { UpdateTopicDto } from './dto/update-topic.dto';
 import { ForumsService } from './forums.service';
 
@@ -70,7 +70,7 @@ export class ForumTopicsController {
 
   @Delete(':id')
   @ApiUserIdentityHeaders()
-  @ApiOperation({ summary: 'Soft delete an owned topic and its posts' })
+  @ApiOperation({ summary: 'Soft delete an owned topic and its comments' })
   @ApiNotFoundResponse({ description: 'Topic not found' })
   @ApiForbiddenResponse({ description: 'Not the topic owner' })
   async remove(
@@ -84,31 +84,31 @@ export class ForumTopicsController {
     );
   }
 
-  @Post(':id/posts')
+  @Post(':id/comments')
   @ApiUserIdentityHeaders()
-  @ApiOperation({ summary: 'Add a post or reply to a topic' })
-  @ApiNotFoundResponse({ description: 'Topic or parent post not found' })
-  async createPost(
+  @ApiOperation({ summary: 'Add a comment or reply to a topic' })
+  @ApiNotFoundResponse({ description: 'Topic or parent comment not found' })
+  async createComment(
     @Param('id', ParseUUIDPipe) topicId: string,
-    @Body() dto: CreatePostDto,
+    @Body() dto: CreateForumCommentDto,
     @UserIdentity() identity: AppUserIdentity,
   ) {
     return apiSuccess(
       201,
-      'Post created successfully',
-      await this.forumsService.createPost(topicId, dto, identity),
+      'Comment created successfully',
+      await this.forumsService.createComment(topicId, dto, identity),
     );
   }
 
-  @Get(':id/posts')
-  @ApiOperation({ summary: 'List topic posts with cursor pagination' })
+  @Get(':id/comments')
+  @ApiOperation({ summary: 'List topic comments with cursor pagination' })
   @ApiNotFoundResponse({ description: 'Topic not found' })
-  async listPosts(
+  async listComments(
     @Param('id', ParseUUIDPipe) topicId: string,
-    @Query() query: ListPostsQueryDto,
+    @Query() query: ListForumCommentsQueryDto,
   ) {
-    const result = await this.forumsService.listPosts(topicId, query);
-    return apiSuccess(200, 'Posts fetched successfully', result.items, {
+    const result = await this.forumsService.listComments(topicId, query);
+    return apiSuccess(200, 'Comments fetched successfully', result.items, {
       pagination: result.pagination,
     });
   }

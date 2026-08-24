@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, ilike, ne, or, type SQL } from 'drizzle-orm';
+import { and, desc, eq, ne, sql, type SQL } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 import {
   buildCursorCondition,
@@ -36,14 +36,15 @@ export class BlogsRepository {
 
   async create(data: {
     userId: string;
-    title: string;
-    slug: string;
-    content: string;
+    title: string | null;
+    slug: string | null;
+    content: string | null;
     thumbnailMediaId?: string;
     thumbnailUrl?: string | null;
     tags?: string[];
+    links?: string[];
     status: BlogStatus;
-    readingTime: number;
+    readingTime: number | null;
   }) {
     const [record] = await this.database.db
       .insert(blogs)
@@ -52,7 +53,20 @@ export class BlogsRepository {
         status: data.status as 'DRAFT' | 'PUBLISHED',
       })
       .returning();
+
+    await this.refreshSearchVector(record.id);
     return record;
+  }
+
+  async refreshSearchVector(id: string) {
+    await this.database.db.execute(sql`
+      UPDATE blogs
+      SET search_vector = to_tsvector(
+        'english',
+        coalesce(title, '') || ' ' || coalesce(content, '')
+      )
+      WHERE id = ${id}::uuid
+    `);
   }
 
   async findActiveById(id: string) {
@@ -124,14 +138,9 @@ export class BlogsRepository {
     }
 
     if (params.search) {
-      const term = `%${params.search.replace(/[%_]/g, '\\$&')}%`;
-      const searchFilter = or(
-        ilike(blogs.title, term),
-        ilike(blogs.content, term),
+      conditions.push(
+        sql`${blogs.searchVector} @@ websearch_to_tsquery('english', ${params.search})`,
       );
-      if (searchFilter) {
-        conditions.push(searchFilter);
-      }
     }
 
     if (params.cursor) {
@@ -167,16 +176,20 @@ export class BlogsRepository {
   async update(
     id: string,
     data: {
-      title?: string;
-      slug?: string;
-      content?: string;
+      title?: string | null;
+      slug?: string | null;
+      content?: string | null;
       thumbnailMediaId?: string | null;
       thumbnailUrl?: string | null;
       tags?: string[] | null;
+      links?: string[] | null;
       status?: BlogStatus;
-      readingTime?: number;
+      readingTime?: number | null;
     },
   ) {
+    const shouldRefreshSearchVector =
+      data.title !== undefined || data.content !== undefined;
+
     const [record] = await this.database.db
       .update(blogs)
       .set({
@@ -186,6 +199,10 @@ export class BlogsRepository {
       })
       .where(and(eq(blogs.id, id), eq(blogs.isActive, true)))
       .returning();
+
+    if (record && shouldRefreshSearchVector) {
+      await this.refreshSearchVector(id);
+    }
 
     return record;
   }
