@@ -21,12 +21,10 @@ import {
 export { BLOG_STATUSES };
 export type { BlogStatus };
 
-function emptyToUndefined(value: unknown) {
-  if (typeof value === 'string' && value.trim() === '') {
-    return undefined;
-  }
-  return typeof value === 'string' ? value.trim() : value;
-}
+import { BlogStatus } from '../enums/blog.enum';
+
+export const BLOG_STATUSES = ['DRAFT', 'PUBLISHED'] as const;
+export { BlogStatus };
 
 export class CreateBlogDto {
   @ApiPropertyOptional({

@@ -23,6 +23,7 @@ import { normalizeOptionalText } from './blog-fields.helper';
 import { CreateBlogDto } from './dto/create-blog.dto';
 import { ListBlogsQueryDto } from './dto/list-blogs.query.dto';
 import { ListMyBlogsQueryDto } from './dto/list-my-blogs.query.dto';
+import { BlogStatus } from './enums/blog.enum';
 import { UpdateBlogDto } from './dto/update-blog.dto';
 
 const BLOG_CACHE_TTL_SECONDS = 300;
@@ -39,7 +40,7 @@ export class BlogsService {
     private readonly redis: RedisService,
     @Inject(MediaService)
     private readonly mediaService: MediaService,
-  ) {}
+  ) { }
 
   async create(identity: AppUserIdentity, dto: CreateBlogDto) {
     const user = await this.usersService.require(identity, true);
@@ -65,9 +66,8 @@ export class BlogsService {
         thumbnailMediaId: dto.thumbnailMediaId,
         thumbnailUrl,
         tags: dto.tags,
-        links: dto.links,
-        status,
-        readingTime: this.readingTimeFor(content),
+        status: dto.status ?? BlogStatus.DRAFT,
+        readingTime: calculateReadingTime(dto.content),
       });
 
       await this.invalidateListCaches();
@@ -121,13 +121,13 @@ export class BlogsService {
   }
 
   async listMine(identity: AppUserIdentity, query: ListMyBlogsQueryDto) {
-    const requestedUserId = query.userId ?? query.user_id;
+    const requestedUserId = query.userId;
     if (!requestedUserId) {
       throw new BadRequestException('user_id is required');
     }
 
     const user = await this.usersService.require(identity);
-    if (user.id !== requestedUserId) {
+    if (user.appUserId !== requestedUserId) {
       throw new ForbiddenException(
         'user_id must match the authenticated application user',
       );
@@ -140,7 +140,7 @@ export class BlogsService {
       limit,
       cursor: query.cursor ?? null,
       status: query.status ?? null,
-      userId: requestedUserId,
+      userId: user.id,
       search: search ?? null,
     });
 
@@ -157,7 +157,7 @@ export class BlogsService {
       limit,
       cursor,
       status: query.status,
-      userId: requestedUserId,
+      userId: user.id,
       search,
     });
 

@@ -191,7 +191,7 @@ export class ForumsService {
     }
 
     const user = await this.usersService.require(identity);
-    if (user.id !== requestedUserId) {
+    if (user.appUserId !== requestedUserId) {
       throw new ForbiddenException(
         'user_id must match the authenticated application user',
       );
@@ -199,7 +199,7 @@ export class ForumsService {
 
     return this.pageTopics({
       ...query,
-      userId: requestedUserId,
+      userId: user.id,
     });
   }
 
