@@ -66,8 +66,9 @@ export class BlogsService {
         thumbnailMediaId: dto.thumbnailMediaId,
         thumbnailUrl,
         tags: dto.tags,
+        links: dto.links,
         status: dto.status ?? BlogStatus.DRAFT,
-        readingTime: calculateReadingTime(dto.content),
+        readingTime: this.readingTimeFor(content),
       });
 
       await this.invalidateListCaches();

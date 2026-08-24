@@ -74,6 +74,7 @@ export class BlogResponseDto {
       thumbnailMediaId: row.thumbnailMediaId,
       thumbnailUrl: extras?.thumbnailUrl ?? row.thumbnailUrl ?? null,
       tags: row.tags,
+      links: row.links,
       status: row.status as BlogStatus,
       readingTime: row.readingTime,
       likeCount: row.likeCount,

@@ -15,8 +15,8 @@ import {
 import {
   BLOG_STATUSES,
   requiresCompleteBlogFields,
-  type BlogStatus,
 } from '../blog-fields.helper';
+import { BlogStatus } from '../enums/blog.enum';
 
 function emptyToUndefined(value: unknown) {
   if (value === null) {
