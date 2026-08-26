@@ -15,7 +15,7 @@ export class ForumCommentsRepository {
   ) {}
 
   async create(data: {
-    topicId: string;
+    forumId: string;
     userId: string;
     content: string;
     parentCommentId?: string | null;
@@ -24,7 +24,7 @@ export class ForumCommentsRepository {
     const [record] = await this.database.db
       .insert(forumComments)
       .values({
-        topicId: data.topicId,
+        forumId: data.forumId,
         userId: data.userId,
         content: data.content,
         parentCommentId: data.parentCommentId,
@@ -44,13 +44,13 @@ export class ForumCommentsRepository {
     return record;
   }
 
-  async listActiveByTopicId(params: {
-    topicId: string;
+  async listActiveByForumId(params: {
+    forumId: string;
     limit: number;
     cursor?: CursorPayload;
   }) {
     const conditions: SQL[] = [
-      eq(forumComments.topicId, params.topicId),
+      eq(forumComments.forumId, params.forumId),
       eq(forumComments.isActive, true),
     ];
 

@@ -1,11 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, ilike, ne, or, type SQL } from 'drizzle-orm';
+import { and, desc, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
 import {
   buildCursorCondition,
   type CursorPayload,
 } from '../../common/helpers/cursor-pagination.helper';
 import { DatabaseService } from '../../database/database.service';
-import { forumLikes } from '../../database/schema/forum-likes.schema';
 import { forums } from '../../database/schema/forums.schema';
 
 @Injectable()
@@ -15,7 +14,16 @@ export class ForumsRepository {
     private readonly database: DatabaseService,
   ) {}
 
-  async create(data: { name: string; slug: string; description?: string }) {
+  async create(data: {
+    userId: string;
+    title: string;
+    content: string;
+    category: string;
+    subCategory?: string[];
+    mediaId?: string;
+    mediaUrl?: string;
+    isAnonymous?: boolean;
+  }) {
     const [record] = await this.database.db
       .insert(forums)
       .values(data)
@@ -29,45 +37,37 @@ export class ForumsRepository {
     });
   }
 
-  async findBySlug(slug: string) {
-    return this.database.db.query.forums.findFirst({
-      where: eq(forums.slug, slug),
-    });
-  }
-
-  async findBySlugExcludingId(slug: string, id: string) {
-    return this.database.db.query.forums.findFirst({
-      where: and(eq(forums.slug, slug), ne(forums.id, id)),
-    });
-  }
-
-  async findLikeByCategoryAndUser(categoryId: string, userId: string) {
-    const [record] = await this.database.db
-      .select({ id: forumLikes.id })
-      .from(forumLikes)
-      .where(and(eq(forumLikes.categoryId, categoryId), eq(forumLikes.userId, userId)))
-      .limit(1);
-    return record;
-  }
-
   async listActive(params: {
     limit: number;
     cursor?: CursorPayload;
+    userId?: string;
+    category?: string;
+    subCategory?: string;
     search?: string;
   }) {
     const conditions: SQL[] = [eq(forums.isActive, true)];
 
+    if (params.userId) {
+      conditions.push(eq(forums.userId, params.userId));
+    }
+    if (params.category) {
+      conditions.push(eq(forums.category, params.category));
+    }
+    if (params.subCategory) {
+      conditions.push(
+        sql`${forums.subCategory} @> ARRAY[${params.subCategory}]::text[]`,
+      );
+    }
     if (params.search) {
       const term = `%${params.search.replace(/[%_]/g, '\\$&')}%`;
       const searchFilter = or(
-        ilike(forums.name, term),
-        ilike(forums.description, term),
+        ilike(forums.title, term),
+        ilike(forums.content, term),
       );
       if (searchFilter) {
         conditions.push(searchFilter);
       }
     }
-
     if (params.cursor) {
       const cursorFilter = buildCursorCondition(
         forums.createdAt,
@@ -89,7 +89,15 @@ export class ForumsRepository {
 
   async update(
     id: string,
-    data: { name?: string; slug?: string; description?: string | null },
+    data: {
+      title?: string;
+      content?: string;
+      category?: string;
+      subCategory?: string[];
+      mediaId?: string;
+      mediaUrl?: string;
+      isAnonymous?: boolean;
+    },
   ) {
     const [record] = await this.database.db
       .update(forums)
@@ -111,6 +119,17 @@ export class ForumsRepository {
       })
       .where(and(eq(forums.id, id), eq(forums.isActive, true)))
       .returning();
+
+    if (record) {
+      await this.database.db.execute(sql`
+        UPDATE forum_comments
+        SET is_active = false,
+            updated_at = now()
+        WHERE forum_id = ${id}::uuid
+          AND is_active = true
+      `);
+    }
+
     return record;
   }
 }

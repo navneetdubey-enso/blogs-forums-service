@@ -1,11 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsUUID } from 'class-validator';
-import { ListTopicsQueryDto } from './list-topics.query.dto';
+import { ListForumsQueryDto } from './list-forums.query.dto';
 
-export class ListMyTopicsQueryDto extends ListTopicsQueryDto {
+export class ListMyForumsQueryDto extends ListForumsQueryDto {
   @ApiPropertyOptional({
     format: 'uuid',
-    description: 'Internal user id whose topics should be returned',
+    description: 'Internal user id whose forums should be returned',
   })
   @IsOptional()
   @IsUUID()
@@ -14,7 +14,7 @@ export class ListMyTopicsQueryDto extends ListTopicsQueryDto {
   @ApiProperty({
     name: 'user_id',
     format: 'uuid',
-    description: 'Internal user id whose topics should be returned',
+    description: 'Internal user id whose forums should be returned',
   })
   @IsOptional()
   @IsUUID()

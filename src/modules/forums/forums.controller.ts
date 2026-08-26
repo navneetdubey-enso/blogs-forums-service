@@ -13,7 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
-  ApiConflictResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOperation,
   ApiSecurity,
@@ -21,18 +21,16 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import {
-  ApiOptionalUserIdentityHeaders,
   ApiUserIdentityHeaders,
-  OptionalUserIdentity,
   UserIdentity,
 } from '../../common/decorators/user-identity.decorator';
 import { ServiceAuthGuard } from '../../common/guards/service-auth.guard';
 import { apiSuccess } from '../../common/helpers/api-response.helper';
 import type { AppUserIdentity } from '../users/users.service';
+import { CreateForumCommentDto } from './dto/create-forum-comment.dto';
 import { CreateForumDto } from './dto/create-forum.dto';
-import { CreateTopicDto } from './dto/create-topic.dto';
+import { ListForumCommentsQueryDto } from './dto/list-forum-comments.query.dto';
 import { ListForumsQueryDto } from './dto/list-forums.query.dto';
-import { ListTopicsQueryDto } from './dto/list-topics.query.dto';
 import { UpdateForumDto } from './dto/update-forum.dto';
 import { ForumsService } from './forums.service';
 
@@ -44,20 +42,23 @@ import { ForumsService } from './forums.service';
 export class ForumsController {
   constructor(private readonly forumsService: ForumsService) {}
 
-  @Post('category')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a forum' })
-  @ApiConflictResponse({ description: 'Duplicate slug' })
-  async create(@Body() dto: CreateForumDto) {
+  @ApiUserIdentityHeaders()
+  @ApiOperation({ summary: 'Create a forum post' })
+  async create(
+    @Body() dto: CreateForumDto,
+    @UserIdentity() identity: AppUserIdentity,
+  ) {
     return apiSuccess(
       201,
       'Forum created successfully',
-      await this.forumsService.createForum(dto),
+      await this.forumsService.createForum(dto, identity),
     );
   }
 
-  @Get('category')
-  @ApiOperation({ summary: 'List active forums' })
+  @Get()
+  @ApiOperation({ summary: 'List forums' })
   async list(@Query() query: ListForumsQueryDto) {
     return apiSuccess(
       200,
@@ -66,76 +67,76 @@ export class ForumsController {
     );
   }
 
-  @Get('category/:id')
-  @ApiOptionalUserIdentityHeaders()
+  @Get(':id')
   @ApiOperation({ summary: 'Get an active forum by id' })
   @ApiNotFoundResponse({ description: 'Forum not found' })
-  async getById(
-    @Param('id', ParseUUIDPipe) id: string,
-    @OptionalUserIdentity() identity?: AppUserIdentity,
-  ) {
+  async getById(@Param('id', ParseUUIDPipe) id: string) {
     return apiSuccess(
       200,
       'Forum retrieved successfully',
-      await this.forumsService.getForum(id, identity),
+      await this.forumsService.getForum(id),
     );
   }
 
-  @Patch('category/:id')
-  @ApiOperation({ summary: 'Update a forum' })
+  @Patch(':id')
+  @ApiUserIdentityHeaders()
+  @ApiOperation({ summary: 'Update an owned forum' })
   @ApiNotFoundResponse({ description: 'Forum not found' })
-  @ApiConflictResponse({ description: 'Duplicate slug' })
+  @ApiForbiddenResponse({ description: 'Not the forum owner' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateForumDto,
+    @UserIdentity() identity: AppUserIdentity,
   ) {
     return apiSuccess(
       200,
       'Forum updated successfully',
-      await this.forumsService.updateForum(id, dto),
+      await this.forumsService.updateForum(id, dto, identity),
     );
   }
 
-  @Delete('category/:id')
-  @ApiOperation({ summary: 'Soft delete a forum' })
+  @Delete(':id')
+  @ApiUserIdentityHeaders()
+  @ApiOperation({ summary: 'Soft delete an owned forum and its comments' })
   @ApiNotFoundResponse({ description: 'Forum not found' })
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
+  @ApiForbiddenResponse({ description: 'Not the forum owner' })
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UserIdentity() identity: AppUserIdentity,
+  ) {
     return apiSuccess(
       200,
       'Forum deleted successfully',
-      await this.forumsService.deleteForum(id),
+      await this.forumsService.deleteForum(id, identity),
     );
   }
 
-  @Post(':id/topics')
-  @HttpCode(HttpStatus.CREATED)
+  @Post(':id/comments')
   @ApiUserIdentityHeaders()
-  @ApiOperation({ summary: 'Create a topic in a forum' })
-  @ApiNotFoundResponse({ description: 'Forum not found' })
-  @ApiConflictResponse({ description: 'Duplicate slug' })
-  async createTopic(
-    @Param('id', ParseUUIDPipe) categoryId: string,
-    @Body() dto: CreateTopicDto,
+  @ApiOperation({ summary: 'Add a comment or reply to a forum' })
+  @ApiNotFoundResponse({ description: 'Forum or parent comment not found' })
+  async createComment(
+    @Param('id', ParseUUIDPipe) forumId: string,
+    @Body() dto: CreateForumCommentDto,
     @UserIdentity() identity: AppUserIdentity,
   ) {
     return apiSuccess(
       201,
-      'Topic created successfully',
-      await this.forumsService.createTopic(categoryId, dto, identity),
+      'Comment created successfully',
+      await this.forumsService.createComment(forumId, dto, identity),
     );
   }
 
-  @Get(':id/topics')
-  @ApiOperation({ summary: 'List topics in a forum' })
+  @Get(':id/comments')
+  @ApiOperation({ summary: 'List forum comments with cursor pagination' })
   @ApiNotFoundResponse({ description: 'Forum not found' })
-  async listTopics(
-    @Param('id', ParseUUIDPipe) categoryId: string,
-    @Query() query: ListTopicsQueryDto,
+  async listComments(
+    @Param('id', ParseUUIDPipe) forumId: string,
+    @Query() query: ListForumCommentsQueryDto,
   ) {
-    return apiSuccess(
-      200,
-      'Topics retrieved successfully',
-      await this.forumsService.listTopics(categoryId, query),
-    );
+    const result = await this.forumsService.listComments(forumId, query);
+    return apiSuccess(200, 'Comments fetched successfully', result.items, {
+      pagination: result.pagination,
+    });
   }
 }

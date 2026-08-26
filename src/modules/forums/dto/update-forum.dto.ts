@@ -1,8 +1,10 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
+  IsBoolean,
   IsOptional,
   IsString,
-  Matches,
+  IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -13,20 +15,34 @@ export class UpdateForumDto {
   @IsString()
   @MinLength(1)
   @MaxLength(255)
-  name?: string;
+  title?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  content?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(255)
-  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
-    message: 'slug must be lowercase letters, numbers, and hyphens',
-  })
-  slug?: string;
+  category?: string;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ example: ['Programming', 'Node.js'] })
   @IsOptional()
-  @IsString()
-  description?: string | null;
+  @IsArray()
+  @IsString({ each: true })
+  subCategory?: string[];
+
+  @ApiPropertyOptional({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  @IsOptional()
+  @IsUUID()
+  mediaId?: string;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  isAnonymous?: boolean;
 }

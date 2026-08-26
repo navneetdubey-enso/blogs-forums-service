@@ -13,35 +13,35 @@ import {
 import { ServiceAuthGuard } from '../../common/guards/service-auth.guard';
 import { apiSuccess } from '../../common/helpers/api-response.helper';
 import type { AppUserIdentity } from '../users/users.service';
-import { ListMyTopicsQueryDto } from './dto/list-my-topics.query.dto';
+import { ListMyForumsQueryDto } from './dto/list-my-forums.query.dto';
 import { ForumsService } from './forums.service';
 
-@ApiTags('Forum Topics')
+@ApiTags('Forums')
 @ApiSecurity('service-auth')
 @ApiUnauthorizedResponse({ description: 'Invalid or missing service token' })
-@Controller('api/v1/my/topics')
+@Controller('api/v1/my/forums')
 @UseGuards(ServiceAuthGuard)
-export class MyTopicsController {
+export class MyForumsController {
   constructor(private readonly forumsService: ForumsService) {}
 
   @Get()
   @ApiUserIdentityHeaders()
   @ApiOperation({
-    summary: "List the authenticated user's forum topics",
+    summary: "List the authenticated user's forums",
     description:
-      'Requires user_id. Returns only topics owned by that user after identity validation.',
+      'Requires user_id. Returns only forums owned by that user after identity validation.',
   })
   @ApiForbiddenResponse({
     description: 'user_id does not match the authenticated user',
   })
   async listMine(
     @UserIdentity() identity: AppUserIdentity,
-    @Query() query: ListMyTopicsQueryDto,
+    @Query() query: ListMyForumsQueryDto,
   ) {
     return apiSuccess(
       200,
-      'Topics retrieved successfully',
-      await this.forumsService.listMyTopics(identity, query),
+      'Forums retrieved successfully',
+      await this.forumsService.listMyForums(identity, query),
     );
   }
 }

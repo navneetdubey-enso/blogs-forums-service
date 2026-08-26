@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -10,21 +9,17 @@ import {
   decodeCursor,
   sliceCursorPage,
 } from '../../common/helpers/cursor-pagination.helper';
-import { isUniqueViolation } from '../../common/helpers/postgres.helper';
 import type { AppUserIdentity } from '../users/users.service';
 import { UsersService } from '../users/users.service';
-import { CreateForumDto } from './dto/create-forum.dto';
+import { MediaService } from '../media/media.service';
 import { CreateForumCommentDto } from './dto/create-forum-comment.dto';
-import { CreateTopicDto } from './dto/create-topic.dto';
-import { ListForumsQueryDto } from './dto/list-forums.query.dto';
+import { CreateForumDto } from './dto/create-forum.dto';
 import { ListForumCommentsQueryDto } from './dto/list-forum-comments.query.dto';
-import { ListMyTopicsQueryDto } from './dto/list-my-topics.query.dto';
-import { ListTopicsQueryDto } from './dto/list-topics.query.dto';
-import { UpdateForumDto } from './dto/update-forum.dto';
+import { ListMyForumsQueryDto } from './dto/list-my-forums.query.dto';
+import { ListForumsQueryDto } from './dto/list-forums.query.dto';
 import { UpdateForumCommentDto } from './dto/update-forum-comment.dto';
-import { UpdateTopicDto } from './dto/update-topic.dto';
+import { UpdateForumDto } from './dto/update-forum.dto';
 import { ForumCommentsRepository } from './forum-comments.repository';
-import { ForumTopicsRepository } from './forum-topics.repository';
 import { ForumsRepository } from './forums.repository';
 
 @Injectable()
@@ -32,159 +27,46 @@ export class ForumsService {
   constructor(
     @Inject(ForumsRepository)
     private readonly forumsRepository: ForumsRepository,
-    @Inject(ForumTopicsRepository)
-    private readonly topicsRepository: ForumTopicsRepository,
     @Inject(ForumCommentsRepository)
     private readonly commentsRepository: ForumCommentsRepository,
     @Inject(UsersService)
     private readonly usersService: UsersService,
+    @Inject(MediaService)
+    private readonly mediaService: MediaService,
   ) {}
 
-  async createForum(dto: CreateForumDto) {
-    const slug = dto.slug.trim();
-    const existingSlug = await this.forumsRepository.findBySlug(slug);
-    if (existingSlug) {
-      throw new ConflictException('Forum slug already exists');
+  async createForum(dto: CreateForumDto, identity: AppUserIdentity) {
+    const user = await this.usersService.require(identity, true);
+
+    let mediaUrl: string | undefined = undefined;
+    if (dto.mediaId) {
+      try {
+        const mediaRecord = await this.mediaService.findOne(dto.mediaId);
+        mediaUrl = mediaRecord.url ?? undefined;
+      } catch {
+        throw new BadRequestException('Invalid mediaId provided');
+      }
     }
 
-    try {
-      return await this.forumsRepository.create({
-        name: dto.name.trim(),
-        slug,
-        description: dto.description,
-      });
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        throw new ConflictException('Forum slug already exists');
-      }
-      throw error;
-    }
+    const forum = await this.forumsRepository.create({
+      userId: user.id,
+      title: dto.title.trim(),
+      content: dto.content,
+      category: dto.category.trim(),
+      subCategory: dto.subCategory,
+      mediaId: dto.mediaId,
+      mediaUrl,
+      isAnonymous: dto.isAnonymous ?? false,
+    });
+
+    return this.formatForum(forum);
   }
 
   async listForums(query: ListForumsQueryDto) {
-    const limit = query.limit ?? 20;
-    const cursor = query.cursor ? decodeCursor(query.cursor) : undefined;
-    const rows = await this.forumsRepository.listActive({
-      limit,
-      cursor,
-      search: query.search?.trim() || undefined,
-    });
-    const page = sliceCursorPage(rows, limit);
-    return { items: page.items, nextCursor: page.nextCursor };
+    return this.pageForums(query);
   }
 
-  async getForum(id: string, identity?: AppUserIdentity) {
-    const forum = await this.forumsRepository.findActiveById(id);
-    if (!forum) {
-      throw new NotFoundException('Forum not found');
-    }
-
-    let isLikedByCurrentUser: boolean | undefined;
-    if (identity) {
-      const user = await this.usersService.resolve(identity);
-      if (user) {
-        const like = await this.forumsRepository.findLikeByCategoryAndUser(
-          id,
-          user.id,
-        );
-        isLikedByCurrentUser = !!like;
-      }
-    }
-
-    return identity
-      ? { ...forum, isLikedByCurrentUser }
-      : forum;
-  }
-
-  async updateForum(id: string, dto: UpdateForumDto) {
-    const hasUpdate = [dto.name, dto.slug, dto.description].some(
-      (value) => value !== undefined,
-    );
-    if (!hasUpdate) {
-      throw new BadRequestException('No fields to update');
-    }
-
-    const forum = await this.forumsRepository.findActiveById(id);
-    if (!forum) {
-      throw new NotFoundException('Forum not found');
-    }
-
-    if (dto.slug && dto.slug !== forum.slug) {
-      const existingSlug = await this.forumsRepository.findBySlugExcludingId(
-        dto.slug,
-        id,
-      );
-      if (existingSlug) {
-        throw new ConflictException('Forum slug already exists');
-      }
-    }
-
-    try {
-      const record = await this.forumsRepository.update(id, {
-        name: dto.name?.trim(),
-        slug: dto.slug,
-        description: dto.description,
-      });
-      if (!record) {
-        throw new NotFoundException('Forum not found');
-      }
-      return record;
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        throw new ConflictException('Forum slug already exists');
-      }
-      throw error;
-    }
-  }
-
-  async deleteForum(id: string) {
-    const record = await this.forumsRepository.softDelete(id);
-    if (!record) {
-      throw new NotFoundException('Forum not found');
-    }
-    return { id: record.id, isActive: record.isActive };
-  }
-
-  async createTopic(
-    categoryId: string,
-    dto: CreateTopicDto,
-    identity: AppUserIdentity,
-  ) {
-    await this.getForum(categoryId);
-    const user = await this.usersService.require(identity, true);
-    const slug = dto.slug.trim();
-
-    const existingSlug = await this.topicsRepository.findBySlug(slug);
-    if (existingSlug) {
-      throw new ConflictException('Topic slug already exists');
-    }
-
-    try {
-      return await this.topicsRepository.create({
-        categoryId,
-        userId: user.id,
-        title: dto.title.trim(),
-        slug,
-        content: dto.content,
-        status: dto.status ?? 'DRAFT',
-      });
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        throw new ConflictException('Topic slug already exists');
-      }
-      throw error;
-    }
-  }
-
-  async listTopics(categoryId: string, query: ListTopicsQueryDto) {
-    await this.getForum(categoryId);
-    return this.pageTopics({
-      ...query,
-      categoryId,
-    });
-  }
-
-  async listMyTopics(identity: AppUserIdentity, query: ListMyTopicsQueryDto) {
+  async listMyForums(identity: AppUserIdentity, query: ListMyForumsQueryDto) {
     const requestedUserId = query.userId ?? query.user_id;
     if (!requestedUserId) {
       throw new BadRequestException('user_id is required');
@@ -197,86 +79,89 @@ export class ForumsService {
       );
     }
 
-    return this.pageTopics({
+    return this.pageForums({
       ...query,
       userId: user.id,
     });
   }
 
-  async getTopic(id: string) {
-    const topic = await this.topicsRepository.findActiveById(id);
-    if (!topic) {
-      throw new NotFoundException('Topic not found');
+  async getForum(id: string) {
+    const forum = await this.forumsRepository.findActiveById(id);
+    if (!forum) {
+      throw new NotFoundException('Forum not found');
     }
-    return topic;
+    return this.formatForum(forum);
   }
 
-  async updateTopic(
+  async updateForum(
     id: string,
-    dto: UpdateTopicDto,
+    dto: UpdateForumDto,
     identity: AppUserIdentity,
   ) {
-    const hasUpdate = [dto.title, dto.slug, dto.content, dto.status].some(
-      (value) => value !== undefined,
-    );
+    const hasUpdate = [
+      dto.title,
+      dto.content,
+      dto.category,
+      dto.subCategory,
+      dto.mediaId,
+      dto.isAnonymous,
+    ].some((value) => value !== undefined);
+
     if (!hasUpdate) {
       throw new BadRequestException('No fields to update');
     }
 
-    const topic = await this.requireOwnedTopic(
+    await this.requireOwnedForum(
       id,
       identity,
-      'You are not allowed to modify this topic',
+      'You are not allowed to modify this forum',
     );
 
-    if (dto.slug && dto.slug !== topic.slug) {
-      const existingSlug = await this.topicsRepository.findBySlugExcludingId(
-        dto.slug,
-        id,
-      );
-      if (existingSlug) {
-        throw new ConflictException('Topic slug already exists');
+    let mediaUrl: string | undefined = undefined;
+    if (dto.mediaId) {
+      try {
+        const mediaRecord = await this.mediaService.findOne(dto.mediaId);
+        mediaUrl = mediaRecord.url ?? undefined;
+      } catch {
+        throw new BadRequestException('Invalid mediaId provided');
       }
     }
 
-    try {
-      const record = await this.topicsRepository.update(id, {
-        title: dto.title?.trim(),
-        slug: dto.slug,
-        content: dto.content,
-        status: dto.status,
-      });
-      if (!record) {
-        throw new NotFoundException('Topic not found');
-      }
-      return record;
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        throw new ConflictException('Topic slug already exists');
-      }
-      throw error;
+    const record = await this.forumsRepository.update(id, {
+      title: dto.title?.trim(),
+      content: dto.content,
+      category: dto.category?.trim(),
+      subCategory: dto.subCategory,
+      mediaId: dto.mediaId,
+      mediaUrl,
+      isAnonymous: dto.isAnonymous,
+    });
+
+    if (!record) {
+      throw new NotFoundException('Forum not found');
     }
+    return this.formatForum(record);
   }
 
-  async deleteTopic(id: string, identity: AppUserIdentity) {
-    await this.requireOwnedTopic(
+  async deleteForum(id: string, identity: AppUserIdentity) {
+    await this.requireOwnedForum(
       id,
       identity,
-      'You are not allowed to delete this topic',
+      'You are not allowed to delete this forum',
     );
-    const record = await this.topicsRepository.softDelete(id);
+    const record = await this.forumsRepository.softDelete(id);
     if (!record) {
-      throw new NotFoundException('Topic not found');
+      throw new NotFoundException('Forum not found');
     }
     return { id: record.id, isActive: record.isActive };
   }
 
   async createComment(
-    topicId: string,
+    forumId: string,
     dto: CreateForumCommentDto,
     identity: AppUserIdentity,
   ) {
-    await this.getTopic(topicId);
+    await this.getForum(forumId);
     const user = await this.usersService.require(identity, true);
 
     let parentCommentId: string | null = null;
@@ -289,9 +174,9 @@ export class ForumsService {
       if (!parent) {
         throw new NotFoundException('Parent comment not found');
       }
-      if (parent.topicId !== topicId) {
+      if (parent.forumId !== forumId) {
         throw new BadRequestException(
-          'Parent comment does not belong to this topic',
+          'Parent comment does not belong to this forum',
         );
       }
       parentCommentId = parent.id;
@@ -299,7 +184,7 @@ export class ForumsService {
     }
 
     return this.commentsRepository.create({
-      topicId,
+      forumId,
       userId: user.id,
       content: dto.content,
       parentCommentId,
@@ -307,12 +192,12 @@ export class ForumsService {
     });
   }
 
-  async listComments(topicId: string, query: ListForumCommentsQueryDto) {
-    await this.getTopic(topicId);
+  async listComments(forumId: string, query: ListForumCommentsQueryDto) {
+    await this.getForum(forumId);
     const limit = query.limit ?? 10;
     const cursor = query.cursor ? decodeCursor(query.cursor) : undefined;
-    const rows = await this.commentsRepository.listActiveByTopicId({
-      topicId,
+    const rows = await this.commentsRepository.listActiveByForumId({
+      forumId,
       limit,
       cursor,
     });
@@ -354,11 +239,11 @@ export class ForumsService {
     }
 
     const user = await this.usersService.resolve(identity);
-    const topic = await this.topicsRepository.findActiveById(existing.topicId);
+    const forum = await this.forumsRepository.findActiveById(existing.forumId);
     const isCommentAuthor = !!user && existing.userId === user.id;
-    const isTopicOwner = !!user && topic?.userId === user.id;
+    const isForumOwner = !!user && forum?.userId === user.id;
 
-    if (!isCommentAuthor && !isTopicOwner) {
+    if (!isCommentAuthor && !isForumOwner) {
       throw new ForbiddenException(
         'You are not authorized to delete this comment',
       );
@@ -368,43 +253,53 @@ export class ForumsService {
     return { id, isActive: false };
   }
 
-  private async pageTopics(params: {
+  private async pageForums(params: {
     limit?: number;
     cursor?: string;
-    status?: ListTopicsQueryDto['status'];
     search?: string;
-    categoryId?: string;
+    category?: string;
+    subCategory?: string;
     userId?: string;
   }) {
     const limit = params.limit ?? 20;
     const cursor = params.cursor ? decodeCursor(params.cursor) : undefined;
-    const rows = await this.topicsRepository.listActive({
+    const rows = await this.forumsRepository.listActive({
       limit,
       cursor,
-      categoryId: params.categoryId,
       userId: params.userId,
-      status: params.status,
+      category: params.category,
+      subCategory: params.subCategory,
       search: params.search?.trim() || undefined,
     });
     const page = sliceCursorPage(rows, limit);
-    return { items: page.items, nextCursor: page.nextCursor };
+    const items = page.items.map((item) => this.formatForum(item));
+    return { items, nextCursor: page.nextCursor };
   }
 
-  private async requireOwnedTopic(
+  private async requireOwnedForum(
     id: string,
     identity: AppUserIdentity,
     forbiddenMessage: string,
   ) {
-    const topic = await this.topicsRepository.findActiveById(id);
-    if (!topic) {
-      throw new NotFoundException('Topic not found');
+    const forum = await this.forumsRepository.findActiveById(id);
+    if (!forum) {
+      throw new NotFoundException('Forum not found');
     }
 
     const user = await this.usersService.resolve(identity);
-    if (!user || topic.userId !== user.id) {
+    if (!user || forum.userId !== user.id) {
       throw new ForbiddenException(forbiddenMessage);
     }
 
-    return topic;
+    return forum;
+  }
+
+  private formatForum(forum: any) {
+    if (!forum) return forum;
+    const res = { ...forum };
+    if (res.isAnonymous) {
+      res.userId = '00000000-0000-0000-0000-000000000000';
+    }
+    return res;
   }
 }

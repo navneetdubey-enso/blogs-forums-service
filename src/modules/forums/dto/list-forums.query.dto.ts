@@ -16,7 +16,17 @@ export class ListForumsQueryDto {
   @IsString()
   cursor?: string;
 
-  @ApiPropertyOptional({ description: 'Search in forum name and description' })
+  @ApiPropertyOptional({ description: 'Filter by category name' })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by sub-category name' })
+  @IsOptional()
+  @IsString()
+  subCategory?: string;
+
+  @ApiPropertyOptional({ description: 'Search in forum title and content' })
   @IsOptional()
   @IsString()
   search?: string;

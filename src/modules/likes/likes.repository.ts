@@ -51,10 +51,10 @@ export class LikesRepository {
     return deletedLike;
   }
 
-  async createForumLike(categoryId: string, userId: string) {
+  async createForumLike(forumId: string, userId: string) {
     await this.database.db.transaction(async (tx) => {
       await tx.insert(forumLikes).values({
-        categoryId,
+        forumId,
         userId,
       });
 
@@ -64,15 +64,15 @@ export class LikesRepository {
           likeCount: sql`${forums.likeCount} + 1`,
           updatedAt: new Date(),
         })
-        .where(eq(forums.id, categoryId));
+        .where(eq(forums.id, forumId));
     });
   }
 
-  async deleteForumLike(categoryId: string, userId: string) {
+  async deleteForumLike(forumId: string, userId: string) {
     const [deletedLike] = await this.database.db
       .delete(forumLikes)
       .where(
-        and(eq(forumLikes.categoryId, categoryId), eq(forumLikes.userId, userId)),
+        and(eq(forumLikes.forumId, forumId), eq(forumLikes.userId, userId)),
       )
       .returning();
 
@@ -86,7 +86,7 @@ export class LikesRepository {
         likeCount: sql`GREATEST(0, ${forums.likeCount} - 1)`,
         updatedAt: new Date(),
       })
-      .where(eq(forums.id, categoryId));
+      .where(eq(forums.id, forumId));
 
     return deletedLike;
   }
