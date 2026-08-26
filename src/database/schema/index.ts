@@ -6,3 +6,4 @@ export * from './comments.schema';
 export * from './blog-likes.schema';
 export * from './forums.schema';
 export * from './forum-likes.schema';
+export * from './reports.schema';

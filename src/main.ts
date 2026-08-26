@@ -17,10 +17,13 @@ async function bootstrap() {
     }),
   );
 
+  const port = 4002;
+
   const config = new DocumentBuilder()
     .setTitle('Blogs & Forums Service API')
     .setDescription('API documentation for the Blogs & Forums Service')
     .setVersion('1.0')
+    .addServer(`http://localhost:${port}`)
     .addApiKey(
       {
         type: 'apiKey',
@@ -36,7 +39,7 @@ async function bootstrap() {
 
   SwaggerModule.setup('docs', app, document);
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(port);
 }
 
 void bootstrap();

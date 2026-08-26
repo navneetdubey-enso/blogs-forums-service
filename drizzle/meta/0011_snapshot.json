@@ -1,6 +1,6 @@
 {
-  "id": "03381314-982c-4cbe-b919-be7c1c121aeb",
-  "prevId": "39f248e0-856e-4d65-a4f9-47b3cd381e06",
+  "id": "103e805d-d0a6-49ba-ad7e-d977fe31579c",
+  "prevId": "03381314-982c-4cbe-b919-be7c1c121aeb",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -504,8 +504,8 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "category_id": {
-          "name": "category_id",
+        "forum_id": {
+          "name": "forum_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -529,7 +529,7 @@
           "name": "unique_category_user_like",
           "columns": [
             {
-              "expression": "category_id",
+              "expression": "forum_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -548,12 +548,12 @@
         }
       },
       "foreignKeys": {
-        "forum_likes_category_id_forums_category_id_fk": {
-          "name": "forum_likes_category_id_forums_category_id_fk",
+        "forum_likes_forum_id_forum_id_fk": {
+          "name": "forum_likes_forum_id_forum_id_fk",
           "tableFrom": "forum_likes",
-          "tableTo": "forums_category",
+          "tableTo": "forum",
           "columnsFrom": [
-            "category_id"
+            "forum_id"
           ],
           "columnsTo": [
             "id"
@@ -592,8 +592,8 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "topic_id": {
-          "name": "topic_id",
+        "forum_id": {
+          "name": "forum_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -646,11 +646,11 @@
         }
       },
       "indexes": {
-        "idx_forum_comments_topic_created_at_id": {
-          "name": "idx_forum_comments_topic_created_at_id",
+        "idx_forum_comments_forum_created_at_id": {
+          "name": "idx_forum_comments_forum_created_at_id",
           "columns": [
             {
-              "expression": "topic_id",
+              "expression": "forum_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -690,12 +690,12 @@
         }
       },
       "foreignKeys": {
-        "forum_comments_topic_id_forum_topics_id_fk": {
-          "name": "forum_comments_topic_id_forum_topics_id_fk",
+        "forum_comments_forum_id_forum_id_fk": {
+          "name": "forum_comments_forum_id_forum_id_fk",
           "tableFrom": "forum_comments",
-          "tableTo": "forum_topics",
+          "tableTo": "forum",
           "columnsFrom": [
-            "topic_id"
+            "forum_id"
           ],
           "columnsTo": [
             "id"
@@ -736,8 +736,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.forum_topics": {
-      "name": "forum_topics",
+    "public.forum": {
+      "name": "forum",
       "schema": "",
       "columns": {
         "id": {
@@ -746,12 +746,6 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
-        },
-        "category_id": {
-          "name": "category_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
         },
         "user_id": {
           "name": "user_id",
@@ -765,184 +759,32 @@
           "primaryKey": false,
           "notNull": true
         },
-        "slug": {
-          "name": "slug",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
         "content": {
           "name": "content",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "status": {
-          "name": "status",
-          "type": "forum_topic_status",
-          "typeSchema": "public",
+        "category": {
+          "name": "category",
+          "type": "varchar(255)",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'DRAFT'"
+          "notNull": true
         },
-        "is_active": {
-          "name": "is_active",
-          "type": "boolean",
+        "sub_category": {
+          "name": "sub_category",
+          "type": "text[]",
           "primaryKey": false,
-          "notNull": true,
-          "default": true
+          "notNull": false
         },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "forum_topics_slug_uidx": {
-          "name": "forum_topics_slug_uidx",
-          "columns": [
-            {
-              "expression": "slug",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "forum_topics_category_id_idx": {
-          "name": "forum_topics_category_id_idx",
-          "columns": [
-            {
-              "expression": "category_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "forum_topics_user_id_idx": {
-          "name": "forum_topics_user_id_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "forum_topics_status_idx": {
-          "name": "forum_topics_status_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "forum_topics_created_at_idx": {
-          "name": "forum_topics_created_at_idx",
-          "columns": [
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "forum_topics_category_id_forums_category_id_fk": {
-          "name": "forum_topics_category_id_forums_category_id_fk",
-          "tableFrom": "forum_topics",
-          "tableTo": "forums_category",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "forum_topics_user_id_users_id_fk": {
-          "name": "forum_topics_user_id_users_id_fk",
-          "tableFrom": "forum_topics",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.forums_category": {
-      "name": "forums_category",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
+        "media_id": {
+          "name": "media_id",
           "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(255)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "slug": {
-          "name": "slug",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
+        "media_url": {
+          "name": "media_url",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -954,6 +796,13 @@
           "notNull": true,
           "default": 0
         },
+        "is_anonymous": {
+          "name": "is_anonymous",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "is_active": {
           "name": "is_active",
           "type": "boolean",
@@ -977,17 +826,17 @@
         }
       },
       "indexes": {
-        "forums_slug_uidx": {
-          "name": "forums_slug_uidx",
+        "forums_user_id_idx": {
+          "name": "forums_user_id_idx",
           "columns": [
             {
-              "expression": "slug",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
-          "isUnique": true,
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1008,7 +857,34 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "forum_user_id_users_id_fk": {
+          "name": "forum_user_id_users_id_fk",
+          "tableFrom": "forum",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "forum_media_id_media_id_fk": {
+          "name": "forum_media_id_media_id_fk",
+          "tableFrom": "forum",
+          "tableTo": "media",
+          "columnsFrom": [
+            "media_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -1300,188 +1176,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.reports": {
-      "name": "reports",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "reporter_user_id": {
-          "name": "reporter_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_type": {
-          "name": "target_type",
-          "type": "report_target_type",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_id": {
-          "name": "target_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reason": {
-          "name": "reason",
-          "type": "report_reason",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "report_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'PENDING'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "unique_reporter_target_report": {
-          "name": "unique_reporter_target_report",
-          "columns": [
-            {
-              "expression": "reporter_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "target_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "target_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reports_target_idx": {
-          "name": "reports_target_idx",
-          "columns": [
-            {
-              "expression": "target_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "target_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reports_reporter_user_id_idx": {
-          "name": "reports_reporter_user_id_idx",
-          "columns": [
-            {
-              "expression": "reporter_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reports_status_idx": {
-          "name": "reports_status_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reports_created_at_idx": {
-          "name": "reports_created_at_idx",
-          "columns": [
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "reports_reporter_user_id_users_id_fk": {
-          "name": "reports_reporter_user_id_users_id_fk",
-          "tableFrom": "reports",
-          "tableTo": "users",
-          "columnsFrom": [
-            "reporter_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.users": {
       "name": "users",
       "schema": "",
@@ -1588,14 +1282,6 @@
         "PUBLISHED"
       ]
     },
-    "public.forum_topic_status": {
-      "name": "forum_topic_status",
-      "schema": "public",
-      "values": [
-        "DRAFT",
-        "PUBLISHED"
-      ]
-    },
     "public.owner_type": {
       "name": "owner_type",
       "schema": "public",
@@ -1609,38 +1295,6 @@
       "values": [
         "PUBLIC",
         "PRIVATE"
-      ]
-    },
-    "public.report_reason": {
-      "name": "report_reason",
-      "schema": "public",
-      "values": [
-        "SPAM",
-        "ABUSIVE",
-        "INAPPROPRIATE",
-        "MISINFORMATION",
-        "COPYRIGHT",
-        "OTHER"
-      ]
-    },
-    "public.report_status": {
-      "name": "report_status",
-      "schema": "public",
-      "values": [
-        "PENDING",
-        "REVIEWED",
-        "RESOLVED",
-        "REJECTED"
-      ]
-    },
-    "public.report_target_type": {
-      "name": "report_target_type",
-      "schema": "public",
-      "values": [
-        "BLOG",
-        "BLOG_COMMENT",
-        "FORUM",
-        "FORUM_COMMENT"
       ]
     }
   },

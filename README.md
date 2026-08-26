@@ -44,6 +44,11 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+The service listens on `process.env.PORT` (default **4002**). After it starts:
+
+- API: http://localhost:4002
+- Swagger UI: http://localhost:4002/docs
+
 ## Run tests
 
 ```bash
