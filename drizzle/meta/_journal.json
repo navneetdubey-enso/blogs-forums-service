@@ -64,6 +64,13 @@
       "when": 1787650880063,
       "tag": "0009_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787737223790,
+      "tag": "0010_rename_forums_to_category",
+      "breakpoints": true
     }
   ]
 }

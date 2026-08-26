@@ -57,12 +57,12 @@ export class LikesService {
     return { blogId, liked: false };
   }
 
-  async likeForum(forumId: string, identity: AppUserIdentity) {
-    await this.requireActiveForum(forumId);
+  async likeForum(categoryId: string, identity: AppUserIdentity) {
+    await this.requireActiveForum(categoryId);
     const user = await this.usersService.require(identity, true);
 
     try {
-      await this.likesRepository.createForumLike(forumId, user.id);
+      await this.likesRepository.createForumLike(categoryId, user.id);
     } catch (error: unknown) {
       if (isUniqueViolation(error)) {
         throw new BadRequestException('Forum already liked by user');
@@ -70,24 +70,24 @@ export class LikesService {
       throw error;
     }
 
-    const forum = await this.forumsRepository.findActiveById(forumId);
-    return { forumId, liked: true, likeCount: forum?.likeCount ?? 0 };
+    const forum = await this.forumsRepository.findActiveById(categoryId);
+    return { categoryId, liked: true, likeCount: forum?.likeCount ?? 0 };
   }
 
-  async unlikeForum(forumId: string, identity: AppUserIdentity) {
-    await this.requireActiveForum(forumId);
+  async unlikeForum(categoryId: string, identity: AppUserIdentity) {
+    await this.requireActiveForum(categoryId);
     const user = await this.usersService.require(identity);
 
     const deletedLike = await this.likesRepository.deleteForumLike(
-      forumId,
+      categoryId,
       user.id,
     );
     if (!deletedLike) {
       throw new BadRequestException('Forum is not liked by user');
     }
 
-    const forum = await this.forumsRepository.findActiveById(forumId);
-    return { forumId, liked: false, likeCount: forum?.likeCount ?? 0 };
+    const forum = await this.forumsRepository.findActiveById(categoryId);
+    return { categoryId, liked: false, likeCount: forum?.likeCount ?? 0 };
   }
 
   private async requireActiveBlog(blogId: string) {
@@ -97,8 +97,8 @@ export class LikesService {
     }
   }
 
-  private async requireActiveForum(forumId: string) {
-    const forum = await this.forumsRepository.findActiveById(forumId);
+  private async requireActiveForum(categoryId: string) {
+    const forum = await this.forumsRepository.findActiveById(categoryId);
     if (!forum) {
       throw new NotFoundException('Forum not found');
     }

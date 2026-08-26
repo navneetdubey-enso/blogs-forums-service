@@ -15,7 +15,7 @@ const identity: AppUserIdentity = {
 
 describe('ForumsService', () => {
   const userId = 'user-1';
-  const forumId = 'forum-1';
+  const categoryId = 'category-1';
   const topicId = 'topic-1';
   const commentId = 'comment-1';
 
@@ -27,7 +27,7 @@ describe('ForumsService', () => {
     findBySlugExcludingId: jest.fn(),
     update: jest.fn(),
     softDelete: jest.fn(),
-    findLikeByForumAndUser: jest.fn(),
+    findLikeByCategoryAndUser: jest.fn(),
   };
 
   const topicsRepository = {
@@ -58,13 +58,13 @@ describe('ForumsService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     forumsRepository.findActiveById.mockResolvedValue({
-      id: forumId,
+      id: categoryId,
       isActive: true,
       likeCount: 0,
     });
     forumsRepository.findBySlug.mockResolvedValue(undefined);
     forumsRepository.create.mockImplementation((data: unknown) =>
-      Promise.resolve({ id: forumId, ...(data as object), likeCount: 0 }),
+      Promise.resolve({ id: categoryId, ...(data as object), likeCount: 0 }),
     );
     topicsRepository.findBySlug.mockResolvedValue(undefined);
     topicsRepository.create.mockImplementation((data: unknown) =>
@@ -72,7 +72,7 @@ describe('ForumsService', () => {
     );
     topicsRepository.findActiveById.mockResolvedValue({
       id: topicId,
-      forumId,
+      forumId: categoryId,
       userId,
       isActive: true,
     });
@@ -101,12 +101,12 @@ describe('ForumsService', () => {
       slug: 'general',
       description: undefined,
     });
-    expect(forum.id).toBe(forumId);
+    expect(forum.id).toBe(categoryId);
   });
 
   it('creates a topic without client user_id and defaults status to DRAFT', async () => {
     await service.createTopic(
-      forumId,
+      categoryId,
       {
         title: 'Hello',
         slug: 'hello',
@@ -116,7 +116,7 @@ describe('ForumsService', () => {
     );
 
     expect(topicsRepository.create).toHaveBeenCalledWith({
-      forumId,
+      categoryId,
       userId,
       title: 'Hello',
       slug: 'hello',

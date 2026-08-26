@@ -38,13 +38,13 @@ export class ForumLikesController {
   @ApiOperation({ summary: 'Like a forum' })
   @ApiNotFoundResponse({ description: 'Forum not found' })
   async like(
-    @Param('id', ParseUUIDPipe) forumId: string,
+    @Param('id', ParseUUIDPipe) categoryId: string,
     @UserIdentity() identity: AppUserIdentity,
   ) {
     return apiSuccess(
       200,
       'Forum liked successfully',
-      await this.likesService.likeForum(forumId, identity),
+      await this.likesService.likeForum(categoryId, identity),
     );
   }
 
@@ -54,13 +54,13 @@ export class ForumLikesController {
   @ApiOperation({ summary: 'Unlike a forum' })
   @ApiNotFoundResponse({ description: 'Forum not found' })
   async unlike(
-    @Param('id', ParseUUIDPipe) forumId: string,
+    @Param('id', ParseUUIDPipe) categoryId: string,
     @UserIdentity() identity: AppUserIdentity,
   ) {
     return apiSuccess(
       200,
       'Forum unliked successfully',
-      await this.likesService.unlikeForum(forumId, identity),
+      await this.likesService.unlikeForum(categoryId, identity),
     );
   }
 }

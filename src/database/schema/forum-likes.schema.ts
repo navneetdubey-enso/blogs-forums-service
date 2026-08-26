@@ -6,7 +6,7 @@ export const forumLikes = pgTable(
   'forum_likes',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    forumId: uuid('forum_id')
+    categoryId: uuid('category_id')
       .notNull()
       .references(() => forums.id, { onDelete: 'cascade' }),
     userId: uuid('user_id')
@@ -17,8 +17,8 @@ export const forumLikes = pgTable(
       .defaultNow(),
   },
   (table) => ({
-    uniqueForumUserLike: uniqueIndex('unique_forum_user_like').on(
-      table.forumId,
+    uniqueCategoryUserLike: uniqueIndex('unique_category_user_like').on(
+      table.categoryId,
       table.userId,
     ),
   }),

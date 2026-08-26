@@ -15,7 +15,7 @@ const identity: AppUserIdentity = {
 };
 
 describe('LikesService forum likes', () => {
-  const forumId = 'forum-1';
+  const categoryId = 'category-1';
   const userId = 'user-1';
 
   const likesRepository = {
@@ -42,7 +42,7 @@ describe('LikesService forum likes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     forumsRepository.findActiveById.mockResolvedValue({
-      id: forumId,
+      id: categoryId,
       likeCount: 1,
       isActive: true,
     });
@@ -58,19 +58,19 @@ describe('LikesService forum likes', () => {
 
   it('likes a forum and returns likeCount', async () => {
     likesRepository.createForumLike.mockResolvedValue(undefined);
-    const result = await service.likeForum(forumId, identity);
+    const result = await service.likeForum(categoryId, identity);
     expect(likesRepository.createForumLike).toHaveBeenCalledWith(
-      forumId,
+      categoryId,
       userId,
     );
-    expect(result).toEqual({ forumId, liked: true, likeCount: 1 });
+    expect(result).toEqual({ categoryId, liked: true, likeCount: 1 });
   });
 
   it('prevents duplicate forum likes', async () => {
     likesRepository.createForumLike.mockRejectedValue(
       Object.assign(new Error('duplicate'), { code: '23505' }),
     );
-    await expect(service.likeForum(forumId, identity)).rejects.toBeInstanceOf(
+    await expect(service.likeForum(categoryId, identity)).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });
@@ -78,17 +78,17 @@ describe('LikesService forum likes', () => {
   it('unlikes a forum and returns likeCount', async () => {
     likesRepository.deleteForumLike.mockResolvedValue({ id: 'like-1' });
     forumsRepository.findActiveById.mockResolvedValue({
-      id: forumId,
+      id: categoryId,
       likeCount: 0,
       isActive: true,
     });
-    const result = await service.unlikeForum(forumId, identity);
-    expect(result).toEqual({ forumId, liked: false, likeCount: 0 });
+    const result = await service.unlikeForum(categoryId, identity);
+    expect(result).toEqual({ categoryId, liked: false, likeCount: 0 });
   });
 
   it('rejects unlike when the forum was not liked', async () => {
     likesRepository.deleteForumLike.mockResolvedValue(null);
-    await expect(service.unlikeForum(forumId, identity)).rejects.toBeInstanceOf(
+    await expect(service.unlikeForum(categoryId, identity)).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });

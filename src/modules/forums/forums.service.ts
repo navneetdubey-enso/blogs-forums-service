@@ -83,7 +83,7 @@ export class ForumsService {
     if (identity) {
       const user = await this.usersService.resolve(identity);
       if (user) {
-        const like = await this.forumsRepository.findLikeByForumAndUser(
+        const like = await this.forumsRepository.findLikeByCategoryAndUser(
           id,
           user.id,
         );
@@ -146,11 +146,11 @@ export class ForumsService {
   }
 
   async createTopic(
-    forumId: string,
+    categoryId: string,
     dto: CreateTopicDto,
     identity: AppUserIdentity,
   ) {
-    await this.getForum(forumId);
+    await this.getForum(categoryId);
     const user = await this.usersService.require(identity, true);
     const slug = dto.slug.trim();
 
@@ -161,7 +161,7 @@ export class ForumsService {
 
     try {
       return await this.topicsRepository.create({
-        forumId,
+        categoryId,
         userId: user.id,
         title: dto.title.trim(),
         slug,
@@ -176,11 +176,11 @@ export class ForumsService {
     }
   }
 
-  async listTopics(forumId: string, query: ListTopicsQueryDto) {
-    await this.getForum(forumId);
+  async listTopics(categoryId: string, query: ListTopicsQueryDto) {
+    await this.getForum(categoryId);
     return this.pageTopics({
       ...query,
-      forumId,
+      categoryId,
     });
   }
 
@@ -373,7 +373,7 @@ export class ForumsService {
     cursor?: string;
     status?: ListTopicsQueryDto['status'];
     search?: string;
-    forumId?: string;
+    categoryId?: string;
     userId?: string;
   }) {
     const limit = params.limit ?? 20;
@@ -381,7 +381,7 @@ export class ForumsService {
     const rows = await this.topicsRepository.listActive({
       limit,
       cursor,
-      forumId: params.forumId,
+      categoryId: params.categoryId,
       userId: params.userId,
       status: params.status,
       search: params.search?.trim() || undefined,
