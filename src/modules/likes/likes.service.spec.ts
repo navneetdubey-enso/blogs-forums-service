@@ -63,7 +63,7 @@ describe('LikesService forum likes', () => {
       categoryId,
       userId,
     );
-    expect(result).toEqual({ categoryId, liked: true, likeCount: 1 });
+    expect(result).toEqual({ forumId: categoryId, liked: true, likeCount: 1 });
   });
 
   it('prevents duplicate forum likes', async () => {
@@ -83,7 +83,7 @@ describe('LikesService forum likes', () => {
       isActive: true,
     });
     const result = await service.unlikeForum(categoryId, identity);
-    expect(result).toEqual({ categoryId, liked: false, likeCount: 0 });
+    expect(result).toEqual({ forumId: categoryId, liked: false, likeCount: 0 });
   });
 
   it('rejects unlike when the forum was not liked', async () => {
