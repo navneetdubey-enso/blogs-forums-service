@@ -19,7 +19,7 @@ export const forumTopicStatusEnum = pgEnum('forum_topic_status', [
 ]);
 
 export const forums = pgTable(
-  'forums',
+  'forums_category',
   {
     id: uuid('id').defaultRandom().primaryKey(),
     name: varchar('name', { length: 255 }).notNull(),
@@ -44,7 +44,7 @@ export const forumTopics = pgTable(
   'forum_topics',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    forumId: uuid('forum_id')
+    categoryId: uuid('category_id')
       .notNull()
       .references(() => forums.id, { onDelete: 'cascade' }),
     userId: uuid('user_id')
@@ -64,7 +64,7 @@ export const forumTopics = pgTable(
   },
   (table) => ({
     slugUid: uniqueIndex('forum_topics_slug_uidx').on(table.slug),
-    forumIdIdx: index('forum_topics_forum_id_idx').on(table.forumId),
+    categoryIdIdx: index('forum_topics_category_id_idx').on(table.categoryId),
     userIdIdx: index('forum_topics_user_id_idx').on(table.userId),
     statusIdx: index('forum_topics_status_idx').on(table.status),
     createdAtIdx: index('forum_topics_created_at_idx').on(table.createdAt),

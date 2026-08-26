@@ -57,6 +57,13 @@
       "when": 1787310000000,
       "tag": "0008_forum_comments_and_likes",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787732736170,
+      "tag": "0009_rename_forums_to_forums_category_and_forum_id_to_category_id",
+      "breakpoints": true
     }
   ]
 }

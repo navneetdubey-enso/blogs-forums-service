@@ -41,11 +41,11 @@ export class ForumsRepository {
     });
   }
 
-  async findLikeByForumAndUser(forumId: string, userId: string) {
+  async findLikeByCategoryAndUser(categoryId: string, userId: string) {
     const [record] = await this.database.db
       .select({ id: forumLikes.id })
       .from(forumLikes)
-      .where(and(eq(forumLikes.forumId, forumId), eq(forumLikes.userId, userId)))
+      .where(and(eq(forumLikes.categoryId, categoryId), eq(forumLikes.userId, userId)))
       .limit(1);
     return record;
   }

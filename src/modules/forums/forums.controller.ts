@@ -44,7 +44,7 @@ import { ForumsService } from './forums.service';
 export class ForumsController {
   constructor(private readonly forumsService: ForumsService) {}
 
-  @Post()
+  @Post('category')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a forum' })
   @ApiConflictResponse({ description: 'Duplicate slug' })
@@ -56,7 +56,7 @@ export class ForumsController {
     );
   }
 
-  @Get()
+  @Get('category')
   @ApiOperation({ summary: 'List active forums' })
   async list(@Query() query: ListForumsQueryDto) {
     return apiSuccess(
@@ -66,7 +66,7 @@ export class ForumsController {
     );
   }
 
-  @Get(':id')
+  @Get('category/:id')
   @ApiOptionalUserIdentityHeaders()
   @ApiOperation({ summary: 'Get an active forum by id' })
   @ApiNotFoundResponse({ description: 'Forum not found' })
@@ -81,7 +81,7 @@ export class ForumsController {
     );
   }
 
-  @Patch(':id')
+  @Patch('category/:id')
   @ApiOperation({ summary: 'Update a forum' })
   @ApiNotFoundResponse({ description: 'Forum not found' })
   @ApiConflictResponse({ description: 'Duplicate slug' })
@@ -96,7 +96,7 @@ export class ForumsController {
     );
   }
 
-  @Delete(':id')
+  @Delete('category/:id')
   @ApiOperation({ summary: 'Soft delete a forum' })
   @ApiNotFoundResponse({ description: 'Forum not found' })
   async remove(@Param('id', ParseUUIDPipe) id: string) {
@@ -114,14 +114,14 @@ export class ForumsController {
   @ApiNotFoundResponse({ description: 'Forum not found' })
   @ApiConflictResponse({ description: 'Duplicate slug' })
   async createTopic(
-    @Param('id', ParseUUIDPipe) forumId: string,
+    @Param('id', ParseUUIDPipe) categoryId: string,
     @Body() dto: CreateTopicDto,
     @UserIdentity() identity: AppUserIdentity,
   ) {
     return apiSuccess(
       201,
       'Topic created successfully',
-      await this.forumsService.createTopic(forumId, dto, identity),
+      await this.forumsService.createTopic(categoryId, dto, identity),
     );
   }
 
@@ -129,13 +129,13 @@ export class ForumsController {
   @ApiOperation({ summary: 'List topics in a forum' })
   @ApiNotFoundResponse({ description: 'Forum not found' })
   async listTopics(
-    @Param('id', ParseUUIDPipe) forumId: string,
+    @Param('id', ParseUUIDPipe) categoryId: string,
     @Query() query: ListTopicsQueryDto,
   ) {
     return apiSuccess(
       200,
       'Topics retrieved successfully',
-      await this.forumsService.listTopics(forumId, query),
+      await this.forumsService.listTopics(categoryId, query),
     );
   }
 }

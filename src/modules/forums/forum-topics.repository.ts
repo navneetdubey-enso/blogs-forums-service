@@ -16,7 +16,7 @@ export class ForumTopicsRepository {
   ) {}
 
   async create(data: {
-    forumId: string;
+    categoryId: string;
     userId: string;
     title: string;
     slug: string;
@@ -51,15 +51,15 @@ export class ForumTopicsRepository {
   async listActive(params: {
     limit: number;
     cursor?: CursorPayload;
-    forumId?: string;
+    categoryId?: string;
     userId?: string;
     status?: ForumTopicStatus;
     search?: string;
   }) {
     const conditions: SQL[] = [eq(forumTopics.isActive, true)];
 
-    if (params.forumId) {
-      conditions.push(eq(forumTopics.forumId, params.forumId));
+    if (params.categoryId) {
+      conditions.push(eq(forumTopics.categoryId, params.categoryId));
     }
     if (params.userId) {
       conditions.push(eq(forumTopics.userId, params.userId));
