@@ -8,5 +8,6 @@ import { CommentsService } from './comments.service';
   imports: [BlogsModule],
   controllers: [CommentsController],
   providers: [CommentsRepository, CommentsService],
+  exports: [CommentsRepository],
 })
 export class CommentsModule {}

@@ -9,6 +9,7 @@ import { LikesModule } from './modules/likes/likes.module';
 import { MediaModule } from './modules/media/media.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { RedisModule } from './modules/redis/redis.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { UsersModule } from './modules/users/users.module';
     CommentsModule,
     LikesModule,
     ForumsModule,
+    ReportsModule,
     ProjectsModule,
   ],
 })

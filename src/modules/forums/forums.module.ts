@@ -21,6 +21,6 @@ import { MyTopicsController } from './my-topics.controller';
     ForumCommentsRepository,
     ForumsService,
   ],
-  exports: [ForumsRepository],
+  exports: [ForumsRepository, ForumTopicsRepository, ForumCommentsRepository],
 })
 export class ForumsModule {}
