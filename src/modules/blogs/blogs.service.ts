@@ -66,6 +66,7 @@ export class BlogsService {
         thumbnailUrl,
         tags: dto.tags,
         links: dto.links,
+        mediaUrls: dto.mediaUrls,
         status: dto.status ?? BlogStatus.DRAFT,
         readingTime: this.readingTimeFor(content),
       });
@@ -215,6 +216,7 @@ export class BlogsService {
       dto.thumbnailMediaId,
       dto.tags,
       dto.links,
+      dto.mediaUrls,
       dto.status,
     ].some((value) => value !== undefined);
 
@@ -263,6 +265,7 @@ export class BlogsService {
         thumbnailUrl,
         tags: dto.tags,
         links: dto.links,
+        mediaUrls: dto.mediaUrls,
         status: dto.status,
         readingTime:
           dto.content !== undefined ? this.readingTimeFor(content) : undefined,

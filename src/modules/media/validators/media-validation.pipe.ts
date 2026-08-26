@@ -9,6 +9,15 @@ export class MediaValidationPipe implements PipeTransform {
     'image/webp',
     'image/gif',
     'application/pdf',
+    'audio/mpeg',
+    'audio/wav',
+    'audio/x-wav',
+    'audio/mp4',
+    'audio/x-m4a',
+    'audio/m4a',
+    'audio/ogg',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword',
   ];
 
   transform(value: Express.Multer.File | Express.Multer.File[]) {

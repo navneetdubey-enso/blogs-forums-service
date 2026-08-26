@@ -42,6 +42,7 @@ export const blogs = pgTable(
     thumbnailUrl: varchar('thumbnail_url', { length: 2048 }),
     tags: text('tags').array(),
     links: text('links').array(),
+    mediaUrls: text('media_urls').array(),
     status: blogStatusEnum('status').notNull().default('DRAFT'),
     readingTime: integer('reading_time'),
     likeCount: integer('like_count').notNull().default(0),

@@ -37,6 +37,9 @@ export class BlogResponseDto {
   })
   links: string[] | null;
 
+  @ApiPropertyOptional({ type: [String], nullable: true })
+  mediaUrls: string[] | null;
+
   @ApiProperty({ enum: ['DRAFT', 'PENDING_REVIEW', 'PUBLISHED'] })
   status: BlogStatus;
 
@@ -75,6 +78,7 @@ export class BlogResponseDto {
       thumbnailUrl: extras?.thumbnailUrl ?? row.thumbnailUrl ?? null,
       tags: row.tags,
       links: row.links,
+      mediaUrls: row.mediaUrls,
       status: row.status as BlogStatus,
       readingTime: row.readingTime,
       likeCount: row.likeCount,

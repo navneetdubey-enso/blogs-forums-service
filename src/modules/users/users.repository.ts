@@ -8,7 +8,7 @@ export class UsersRepository {
   constructor(
     @Inject(DatabaseService)
     private readonly database: DatabaseService,
-  ) {}
+  ) { }
 
   async findByAppIdentity(appType: string, appUserId: string) {
     return this.database.db.query.users.findFirst({

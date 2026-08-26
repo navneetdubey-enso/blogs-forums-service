@@ -43,6 +43,7 @@ export class BlogsRepository {
     thumbnailUrl?: string | null;
     tags?: string[];
     links?: string[];
+    mediaUrls?: string[];
     status: BlogStatus;
     readingTime: number | null;
   }) {
@@ -183,6 +184,7 @@ export class BlogsRepository {
       thumbnailUrl?: string | null;
       tags?: string[] | null;
       links?: string[] | null;
+      mediaUrls?: string[] | null;
       status?: BlogStatus;
       readingTime?: number | null;
     },

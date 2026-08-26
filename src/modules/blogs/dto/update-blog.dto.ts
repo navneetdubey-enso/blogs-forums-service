@@ -104,6 +104,17 @@ export class UpdateBlogDto {
   links?: string[] | null;
 
   @ApiPropertyOptional({
+    type: [String],
+    nullable: true,
+    description: 'Optional media urls.',
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsArray()
+  @IsString({ each: true })
+  mediaUrls?: string[] | null;
+
+  @ApiPropertyOptional({
     enum: BLOG_STATUSES,
     description:
       'DRAFT allows incomplete fields. PENDING_REVIEW and PUBLISHED require title, slug, and content in this request.',

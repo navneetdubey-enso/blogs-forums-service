@@ -105,6 +105,16 @@ export class CreateBlogDto {
   links?: string[];
 
   @ApiPropertyOptional({
+    type: [String],
+    example: ['https://example.com/image.png'],
+    description: 'Optional media urls.',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  mediaUrls?: string[];
+
+  @ApiPropertyOptional({
     enum: BLOG_STATUSES,
     example: 'DRAFT',
     description:
