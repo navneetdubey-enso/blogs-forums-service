@@ -40,14 +40,13 @@ export class BlogsService {
     private readonly redis: RedisService,
     @Inject(MediaService)
     private readonly mediaService: MediaService,
-  ) { }
+  ) {}
 
   async create(identity: AppUserIdentity, dto: CreateBlogDto) {
     const user = await this.usersService.require(identity, true);
     const title = normalizeOptionalText(dto.title);
     const slug = normalizeOptionalText(dto.slug);
     const content = normalizeOptionalText(dto.content);
-    const status = dto.status ?? 'DRAFT';
 
     if (slug) {
       const existingSlug = await this.blogsRepository.findBySlug(slug);

@@ -7,7 +7,9 @@ export const BLOG_STATUSES = [
 ] as const;
 
 export function requiresCompleteBlogFields(status?: BlogStatus) {
-  return status === BlogStatus.PENDING_REVIEW || status === BlogStatus.PUBLISHED;
+  return (
+    status === BlogStatus.PENDING_REVIEW || status === BlogStatus.PUBLISHED
+  );
 }
 
 export function normalizeOptionalText(

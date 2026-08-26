@@ -6,10 +6,8 @@ import {
 import { BlogsRepository } from '../blogs/blogs.repository';
 import { CommentsRepository } from '../comments/comments.repository';
 import { ForumCommentsRepository } from '../forums/forum-comments.repository';
-import { ForumTopicsRepository } from '../forums/forum-topics.repository';
 import { ForumsRepository } from '../forums/forums.repository';
 import type { AppUserIdentity } from '../users/users.service';
-import { UsersService } from '../users/users.service';
 import { ReportReason, ReportTargetType } from './enums/report.enum';
 import { ReportsRepository } from './reports.repository';
 import { ReportsService } from './reports.service';
@@ -28,7 +26,6 @@ describe('ReportsService', () => {
   const commentId = 'comment-1';
   const forumId = 'forum-1';
   const forumCommentId = 'forum-comment-1';
-  const topicId = 'topic-1';
   const userId = 'user-1';
   const report = { id: 'report-1', reason: ReportReason.SPAM };
 
@@ -42,9 +39,6 @@ describe('ReportsService', () => {
     findActiveById: jest.fn(),
   };
   const forumsRepository = {
-    findActiveById: jest.fn(),
-  };
-  const forumTopicsRepository = {
     findActiveById: jest.fn(),
   };
   const forumCommentsRepository = {
@@ -65,9 +59,8 @@ describe('ReportsService', () => {
       blogsRepository as unknown as BlogsRepository,
       commentsRepository as unknown as CommentsRepository,
       forumsRepository as unknown as ForumsRepository,
-      forumTopicsRepository as unknown as ForumTopicsRepository,
       forumCommentsRepository as unknown as ForumCommentsRepository,
-      usersService as unknown as UsersService,
+      usersService,
     );
   });
 
@@ -121,10 +114,6 @@ describe('ReportsService', () => {
     forumsRepository.findActiveById.mockResolvedValue({ id: forumId });
     forumCommentsRepository.findActiveById.mockResolvedValue({
       id: forumCommentId,
-      topicId,
-    });
-    forumTopicsRepository.findActiveById.mockResolvedValue({
-      id: topicId,
       forumId,
     });
     await expect(
@@ -203,16 +192,15 @@ describe('ReportsService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('returns 404 when a forum comment topic is inactive', async () => {
+  it('rejects a forum comment that belongs to another forum', async () => {
     forumsRepository.findActiveById.mockResolvedValue({ id: forumId });
     forumCommentsRepository.findActiveById.mockResolvedValue({
       id: forumCommentId,
-      topicId,
+      forumId: 'other-forum',
     });
-    forumTopicsRepository.findActiveById.mockResolvedValue(undefined);
     await expect(
       service.reportForumComment(forumId, forumCommentId, dto, identity),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('rejects a blog comment that belongs to another blog', async () => {

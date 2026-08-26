@@ -98,7 +98,7 @@ export class BlogsController {
   @ApiOperation({
     summary: 'Update an owned blog',
     description:
-      'Partial updates are allowed while status is DRAFT. Setting status to PENDING_REVIEW requires title, slug, and content in the request body (DTO validation).'
+      'Partial updates are allowed while status is DRAFT. Setting status to PENDING_REVIEW requires title, slug, and content in the request body (DTO validation).',
   })
   @ApiNotFoundResponse({ description: 'Blog not found' })
   @ApiForbiddenResponse({ description: 'Not the blog owner' })

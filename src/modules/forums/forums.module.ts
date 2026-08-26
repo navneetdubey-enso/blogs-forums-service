@@ -9,16 +9,8 @@ import { MyForumsController } from './my-forums.controller';
 
 @Module({
   imports: [MediaModule],
-  controllers: [
-    ForumsController,
-    ForumCommentsController,
-    MyForumsController,
-  ],
-  providers: [
-    ForumsRepository,
-    ForumCommentsRepository,
-    ForumsService,
-  ],
+  controllers: [ForumsController, ForumCommentsController, MyForumsController],
+  providers: [ForumsRepository, ForumCommentsRepository, ForumsService],
   exports: [ForumsRepository, ForumCommentsRepository],
 })
 export class ForumsModule {}

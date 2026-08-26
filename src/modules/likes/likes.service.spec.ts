@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { BlogsRepository } from '../blogs/blogs.repository';
 import { BlogsService } from '../blogs/blogs.service';
 import { ForumsRepository } from '../forums/forums.repository';
@@ -70,9 +70,9 @@ describe('LikesService forum likes', () => {
     likesRepository.createForumLike.mockRejectedValue(
       Object.assign(new Error('duplicate'), { code: '23505' }),
     );
-    await expect(service.likeForum(categoryId, identity)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.likeForum(categoryId, identity),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('unlikes a forum and returns likeCount', async () => {
@@ -88,9 +88,9 @@ describe('LikesService forum likes', () => {
 
   it('rejects unlike when the forum was not liked', async () => {
     likesRepository.deleteForumLike.mockResolvedValue(null);
-    await expect(service.unlikeForum(categoryId, identity)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.unlikeForum(categoryId, identity),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('does not expose comment likes', () => {
