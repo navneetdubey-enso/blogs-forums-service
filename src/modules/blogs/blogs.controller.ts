@@ -133,4 +133,21 @@ export class BlogsController {
       await this.blogsService.softDelete(id, identity),
     );
   }
+
+  @Get(':id/views')
+  @ApiUserIdentityHeaders()
+  @ApiOperation({ summary: 'Get view events for a blog' })
+  @ApiNotFoundResponse({ description: 'Blog not found' })
+  @ApiForbiddenResponse({ description: 'Not the blog owner' })
+  async getViews(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UserIdentity() identity: AppUserIdentity,
+  ) {
+    return apiSuccess(
+      200,
+      'Blog views retrieved successfully',
+      await this.blogsService.getViews(id, identity),
+    );
+  }
+
 }

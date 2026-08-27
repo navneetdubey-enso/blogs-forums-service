@@ -9,6 +9,8 @@ import { DatabaseService } from '../../database/database.service';
 import { blogLikes } from '../../database/schema/blog-likes.schema';
 import { blogs } from '../../database/schema/blogs.schema';
 import { media } from '../../database/schema/media.schema';
+import { blogViews } from '../../database/schema/blog-views.schema';
+import { users } from '../../database/schema/users.schema';
 import { BlogStatus } from './dto/create-blog.dto';
 
 export type ListBlogsParams = {
@@ -220,6 +222,25 @@ export class BlogsRepository {
       .returning();
 
     return record;
+  }
+
+  async createView(blogId: string, viewerUserId: string | null) {
+    await this.database.db.insert(blogViews).values({
+      blogId,
+      viewerUserId,
+    });
+  }
+
+  async getViewEvents(blogId: string) {
+    const rows = await this.database.db
+      .select({
+        viewerUserId: users.appUserId,
+        createdAt: blogViews.createdAt,
+      })
+      .from(blogViews)
+      .leftJoin(users, eq(blogViews.viewerUserId, users.id))
+      .where(eq(blogViews.blogId, blogId));
+    return rows;
   }
 
   private toBlogWithThumbnail(row: {

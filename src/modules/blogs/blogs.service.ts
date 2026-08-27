@@ -178,6 +178,8 @@ export class BlogsService {
     if (!identity) {
       const cached = await this.redis.getJson<BlogResponseDto>(cacheKey);
       if (cached) {
+        // Track guest view in background asynchronously
+        this.blogsRepository.createView(id, null).catch(() => {});
         return cached;
       }
     }
@@ -188,15 +190,23 @@ export class BlogsService {
     }
 
     let isLikedByCurrentUser: boolean | undefined;
+    let viewerUserId: string | null = null;
+
     if (identity) {
-      const user = await this.usersService.resolve(identity);
+      const user = await this.usersService.resolve(identity, true);
       if (user) {
+        viewerUserId = user.id;
         const like = await this.blogsRepository.findLikeByBlogAndUser(
           id,
           user.id,
         );
         isLikedByCurrentUser = !!like;
       }
+    }
+
+    // Record view if viewer is not the author
+    if (viewerUserId !== record.userId) {
+      await this.blogsRepository.createView(id, viewerUserId);
     }
 
     const result = await this.toResponse(record, isLikedByCurrentUser);
@@ -207,6 +217,16 @@ export class BlogsService {
 
     return result;
   }
+
+  async getViews(blogId: string, identity: AppUserIdentity) {
+    await this.requireOwnedBlog(
+      blogId,
+      identity,
+      'You can only view analytics for your own blogs.',
+    );
+    return this.blogsRepository.getViewEvents(blogId);
+  }
+
 
   async update(id: string, identity: AppUserIdentity, dto: UpdateBlogDto) {
     const hasUpdate = [
