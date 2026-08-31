@@ -134,6 +134,24 @@ export class BlogsController {
     );
   }
 
+  @Post(':id/publish')
+  @HttpCode(HttpStatus.OK)
+  @ApiUserIdentityHeaders()
+  @ApiOperation({ summary: 'Publish an owned blog' })
+  @ApiNotFoundResponse({ description: 'Blog not found' })
+  @ApiForbiddenResponse({ description: 'Not the blog owner' })
+  @ApiBadRequestResponse({ description: 'Only approved blogs can be published' })
+  async publish(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UserIdentity() identity: AppUserIdentity,
+  ) {
+    return apiSuccess(
+      200,
+      'Blog published successfully',
+      await this.blogsService.publish(id, identity),
+    );
+  }
+
   @Get(':id/views')
   @ApiUserIdentityHeaders()
   @ApiOperation({ summary: 'Get view events for a blog' })
